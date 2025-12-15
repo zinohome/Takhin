@@ -1,0 +1,91 @@
+# .golangci.yml - golangci-lint configuration for Takhin
+# Reference: https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    # Enabled by default
+    - errcheck      # Check for unchecked errors
+    - gosimple      # Simplify code
+    - govet         # Vet examines Go source code
+    - ineffassign   # Detect ineffectual assignments
+    - staticcheck   # Staticcheck is go vet on steroids
+    - unused        # Check for unused constants, variables, functions and types
+    
+    # Additional recommended linters
+    - gofmt         # Check whether code was gofmt-ed
+    - goimports     # Check import statements are formatted according to the 'goimport' command
+    - misspell      # Find commonly misspelled English words in comments
+    - revive        # Fast, configurable, extensible, flexible, and beautiful linter for Go
+    - unconvert     # Remove unnecessary type conversions
+    - unparam       # Report unused function parameters
+    - gocyclo       # Compute cyclomatic complexity
+    - goconst       # Find repeated strings that could be replaced by a constant
+    - dupl          # Tool for code clone detection
+    - gosec         # Inspect source code for security problems
+    - stylecheck    # Stylecheck is a replacement for golint
+    - exportloopref # Check for pointers to enclosing loop variables
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  
+  gocyclo:
+    min-complexity: 15
+  
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+  
+  dupl:
+    threshold: 100
+  
+  govet:
+    enable-all: true
+  
+  revive:
+    rules:
+      - name: var-naming
+      - name: exported
+      - name: indent-error-flow
+      - name: blank-imports
+      - name: context-as-argument
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: if-return
+      - name: increment-decrement
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+  
+  gosec:
+    severity: medium
+    confidence: medium
+
+issues:
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+  
+  max-same-issues: 0
+  max-issues-per-linter: 0
+
+output:
+  sort-results: true

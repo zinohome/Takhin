@@ -1,0 +1,64 @@
+# Takhin Configuration File
+# All settings can be overridden using environment variables with TAKHIN_ prefix
+# Example: TAKHIN_SERVER_PORT=9093
+
+# Server Configuration
+server:
+  host: "0.0.0.0"
+  port: 9092
+
+# Kafka Protocol Configuration
+kafka:
+  broker:
+    id: 1
+  listeners:
+    - "tcp://0.0.0.0:9092"
+  advertised:
+    host: "localhost"
+    port: 9092
+  
+  # Message and Connection Limits
+  max:
+    message:
+      bytes: 1048576      # 1MB
+    connections: 1000
+  request:
+    timeout:
+      ms: 30000           # 30 seconds
+  connection:
+    timeout:
+      ms: 60000           # 60 seconds
+
+# Storage Configuration
+storage:
+  data:
+    dir: "/tmp/takhin-data"
+  
+  # Log Segment Settings
+  log:
+    segment:
+      size: 1073741824    # 1GB
+    retention:
+      hours: 168          # 7 days
+      bytes: 0            # 0 = unlimited
+    
+    # Log Cleanup and Flush
+    cleanup:
+      interval:
+        ms: 300000        # 5 minutes
+    flush:
+      interval:
+        ms: 1000          # 1 second
+      messages: 10000     # Flush after 10k messages
+
+# Logging Configuration
+logging:
+  level: "info"     # debug, info, warn, error
+  format: "json"    # json, text
+
+# Metrics Configuration
+metrics:
+  enabled: true
+  host: "0.0.0.0"
+  port: 9090
+  path: "/metrics"

@@ -1,0 +1,114 @@
+version: '3'
+
+# Global variables
+vars:
+  BACKEND_DIR: backend
+  BINARY_NAME: takhin
+  BUILD_DIR: build
+
+# Tasks
+tasks:
+  # Backend tasks
+  backend:deps:
+    desc: Install backend dependencies
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - go mod download
+      - go mod tidy
+
+  backend:build:
+    desc: Build backend binary
+    dir: '{{.BACKEND_DIR}}'
+    deps: [backend:deps]
+    cmds:
+      - go build -o ../{{.BUILD_DIR}}/{{.BINARY_NAME}} ./cmd/takhin
+    sources:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+    generates:
+      - ../{{.BUILD_DIR}}/{{.BINARY_NAME}}
+
+  backend:run:
+    desc: Run backend server
+    dir: '{{.BACKEND_DIR}}'
+    deps: [backend:build]
+    cmds:
+      - ../{{.BUILD_DIR}}/{{.BINARY_NAME}} -config configs/takhin.yaml
+
+  backend:test:
+    desc: Run backend tests
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - go test -v -race -coverprofile=coverage.out ./...
+
+  backend:test:unit:
+    desc: Run backend unit tests only
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - go test -v -race -short ./...
+
+  backend:coverage:
+    desc: Show backend test coverage
+    dir: '{{.BACKEND_DIR}}'
+    deps: [backend:test]
+    cmds:
+      - go tool cover -html=coverage.out
+
+  backend:lint:
+    desc: Run backend linter
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - golangci-lint run --timeout=5m
+
+  backend:fmt:
+    desc: Format backend code
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - go fmt ./...
+      - goimports -w .
+
+  backend:clean:
+    desc: Clean backend build artifacts
+    cmds:
+      - rm -rf {{.BUILD_DIR}}/{{.BINARY_NAME}}
+      - rm -rf {{.BACKEND_DIR}}/coverage.out
+
+  # Docker tasks
+  docker:build:
+    desc: Build Docker image
+    cmds:
+      - docker build -t takhin:latest -f deployments/Dockerfile .
+
+  docker:run:
+    desc: Run Docker container
+    deps: [docker:build]
+    cmds:
+      - docker run -p 9092:9092 -p 9090:9090 takhin:latest
+
+  # Development tasks
+  dev:setup:
+    desc: Setup development environment
+    cmds:
+      - task: backend:deps
+      - echo "Development environment setup complete"
+
+  dev:check:
+    desc: Run all checks before commit
+    cmds:
+      - task: backend:fmt
+      - task: backend:lint
+      - task: backend:test
+
+  # Clean all
+  clean:
+    desc: Clean all build artifacts
+    cmds:
+      - task: backend:clean
+      - rm -rf {{.BUILD_DIR}}
+
+  # Help
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
