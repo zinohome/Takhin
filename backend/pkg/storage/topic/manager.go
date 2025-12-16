@@ -2,6 +2,7 @@ package topic
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -63,6 +64,33 @@ func (m *Manager) CreateTopic(name string, numPartitions int32) error {
 	}
 
 	m.topics[name] = topic
+	return nil
+}
+
+// DeleteTopic deletes a topic and all its partitions
+func (m *Manager) DeleteTopic(name string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	topic, exists := m.topics[name]
+	if !exists {
+		return fmt.Errorf("topic not found: %s", name)
+	}
+
+	// Close all partition logs
+	for _, partition := range topic.Partitions {
+		if err := partition.Close(); err != nil {
+			return fmt.Errorf("close partition: %w", err)
+		}
+	}
+
+	// Remove topic data directory
+	topicDir := filepath.Join(m.dataDir, name)
+	if err := os.RemoveAll(topicDir); err != nil {
+		return fmt.Errorf("remove topic directory: %w", err)
+	}
+
+	delete(m.topics, name)
 	return nil
 }
 

@@ -32,6 +32,10 @@ func (r *RaftBackend) CreateTopic(name string, numPartitions int32) error {
 	return r.node.CreateTopic(name, numPartitions, r.timeout)
 }
 
+func (r *RaftBackend) DeleteTopic(name string) error {
+	return r.node.DeleteTopic(name, r.timeout)
+}
+
 func (r *RaftBackend) GetTopic(name string) (*topic.Topic, bool) {
 	// Read operations go directly to the FSM without consensus
 	fsm := r.node.GetFSM()

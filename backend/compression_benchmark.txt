@@ -1,0 +1,14 @@
+goos: darwin
+goarch: amd64
+pkg: github.com/takhin-data/takhin/pkg/compression
+cpu: 12th Gen Intel(R) Core(TM) i9-12900HK
+BenchmarkCompression/Compress_GZIP-20         	   45381	    127986 ns/op	  814101 B/op	      20 allocs/op
+BenchmarkCompression/Decompress_GZIP-20       	  521528	     11171 ns/op	   58640 B/op	      13 allocs/op
+BenchmarkCompression/Compress_Snappy-20       	 4470888	      1321 ns/op	    5376 B/op	       1 allocs/op
+BenchmarkCompression/Decompress_Snappy-20     	 4813538	      1234 ns/op	    4864 B/op	       1 allocs/op
+BenchmarkCompression/Compress_LZ4-20          	 3578353	      1689 ns/op	     794 B/op	       8 allocs/op
+BenchmarkCompression/Decompress_LZ4-20        	   18684	    327448 ns/op	 4251079 B/op	      18 allocs/op
+BenchmarkCompression/Compress_ZSTD-20         	   19066	    315431 ns/op	 2346828 B/op	      48 allocs/op
+BenchmarkCompression/Decompress_ZSTD-20       	  313593	     21014 ns/op	   38173 B/op	      44 allocs/op
+PASS
+ok  	github.com/takhin-data/takhin/pkg/compression	60.905s

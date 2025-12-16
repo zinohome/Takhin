@@ -172,6 +172,17 @@ func (n *Node) CreateTopic(name string, numPartitions int32, timeout time.Durati
 	return err
 }
 
+// DeleteTopic deletes a topic through Raft
+func (n *Node) DeleteTopic(name string, timeout time.Duration) error {
+	cmd := Command{
+		Type:      CommandDeleteTopic,
+		TopicName: name,
+	}
+
+	_, err := n.Apply(cmd, timeout)
+	return err
+}
+
 // AppendMessage appends a message through Raft
 func (n *Node) AppendMessage(topic string, partition int32, key, value []byte, timeout time.Duration) (interface{}, error) {
 	cmd := Command{

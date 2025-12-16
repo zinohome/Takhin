@@ -31,6 +31,7 @@ type CommandType string
 
 const (
 	CommandCreateTopic CommandType = "create_topic"
+	CommandDeleteTopic CommandType = "delete_topic"
 	CommandAppend      CommandType = "append"
 )
 
@@ -54,6 +55,8 @@ func (f *FSM) Apply(log *raft.Log) interface{} {
 	switch cmd.Type {
 	case CommandCreateTopic:
 		return f.applyCreateTopic(cmd)
+	case CommandDeleteTopic:
+		return f.applyDeleteTopic(cmd)
 	case CommandAppend:
 		return f.applyAppend(cmd)
 	default:
@@ -64,6 +67,14 @@ func (f *FSM) Apply(log *raft.Log) interface{} {
 // applyCreateTopic creates a new topic
 func (f *FSM) applyCreateTopic(cmd Command) interface{} {
 	if err := f.topicManager.CreateTopic(cmd.TopicName, cmd.NumParts); err != nil {
+		return err
+	}
+	return nil
+}
+
+// applyDeleteTopic deletes a topic
+func (f *FSM) applyDeleteTopic(cmd Command) interface{} {
+	if err := f.topicManager.DeleteTopic(cmd.TopicName); err != nil {
 		return err
 	}
 	return nil

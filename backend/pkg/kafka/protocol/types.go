@@ -34,6 +34,8 @@ const (
 	ApiVersionsKey        APIKey = 18
 	CreateTopicsKey       APIKey = 19
 	DeleteTopicsKey       APIKey = 20
+	DescribeConfigsKey    APIKey = 32
+	AlterConfigsKey       APIKey = 33
 )
 
 // ErrorCode represents a Kafka error code
@@ -194,6 +196,15 @@ func WriteArray(w io.Writer, length int) error {
 	return WriteInt32(w, int32(length))
 }
 
+// WriteBool writes a boolean to the writer
+func WriteBool(w io.Writer, v bool) error {
+	var b byte
+	if v {
+		b = 1
+	}
+	return WriteInt8(w, int8(b))
+}
+
 // ReadInt8 reads an int8 from the reader
 func ReadInt8(r io.Reader) (int8, error) {
 	var v int8
@@ -274,6 +285,15 @@ func ReadBytes(r io.Reader) ([]byte, error) {
 // ReadArrayLength reads an array length from the reader
 func ReadArrayLength(r io.Reader) (int32, error) {
 	return ReadInt32(r)
+}
+
+// ReadBool reads a boolean from the reader
+func ReadBool(r io.Reader) (bool, error) {
+	b, err := ReadInt8(r)
+	if err != nil {
+		return false, err
+	}
+	return b != 0, nil
 }
 
 // DecodeRequestHeader decodes a request header

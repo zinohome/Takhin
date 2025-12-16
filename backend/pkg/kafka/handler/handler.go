@@ -94,6 +94,12 @@ func (h *Handler) HandleRequest(reqData []byte) ([]byte, error) {
 		response, err = h.handleOffsetFetch(r, header)
 	case protocol.LeaveGroupKey:
 		response, err = h.handleLeaveGroup(r, header)
+	case protocol.CreateTopicsKey:
+		response, err = h.handleCreateTopics(r, header)
+	case protocol.DeleteTopicsKey:
+		response, err = h.handleDeleteTopics(r, header)
+	case protocol.DescribeConfigsKey:
+		response, err = h.handleDescribeConfigs(r, header)
 	default:
 		return nil, fmt.Errorf("unsupported API key: %d", header.APIKey)
 	}
@@ -659,4 +665,265 @@ func (h *Handler) encodeResponse(header *protocol.RequestHeader, resp interface{
 
 	buf.Write(respBytes)
 	return buf.Bytes(), nil
+}
+
+// handleCreateTopics handles CreateTopics requests
+func (h *Handler) handleCreateTopics(r io.Reader, header *protocol.RequestHeader) ([]byte, error) {
+	req, err := protocol.DecodeCreateTopicsRequest(r, header)
+	if err != nil {
+		return nil, fmt.Errorf("decode create topics request: %w", err)
+	}
+
+	h.logger.Debug("create topics request",
+		"correlation_id", header.CorrelationID,
+		"topics", len(req.Topics),
+		"timeout_ms", req.TimeoutMs,
+		"validate_only", req.ValidateOnly,
+	)
+
+	resp := &protocol.CreateTopicsResponse{
+		ThrottleTimeMs: 0,
+		Topics:         make([]protocol.CreatableTopicResult, 0, len(req.Topics)),
+	}
+
+	for _, topic := range req.Topics {
+		result := protocol.CreatableTopicResult{
+			Name:              topic.Name,
+			NumPartitions:     topic.NumPartitions,
+			ReplicationFactor: topic.ReplicationFactor,
+			Configs:           topic.Configs,
+		}
+
+		// Validate parameters
+		if topic.NumPartitions <= 0 {
+			result.ErrorCode = protocol.InvalidRequest
+			errMsg := "num_partitions must be greater than 0"
+			result.ErrorMessage = &errMsg
+			resp.Topics = append(resp.Topics, result)
+			continue
+		}
+
+		// Check if topic already exists
+		if _, exists := h.backend.GetTopic(topic.Name); exists {
+			result.ErrorCode = protocol.TopicAlreadyExists
+			errMsg := "topic already exists"
+			result.ErrorMessage = &errMsg
+			resp.Topics = append(resp.Topics, result)
+			continue
+		}
+
+		// Validate only mode - don't actually create
+		if req.ValidateOnly {
+			result.ErrorCode = protocol.None
+			resp.Topics = append(resp.Topics, result)
+			continue
+		}
+
+		// Create topic
+		err := h.backend.CreateTopic(topic.Name, topic.NumPartitions)
+		if err != nil {
+			result.ErrorCode = protocol.InvalidRequest
+			errMsg := err.Error()
+			result.ErrorMessage = &errMsg
+			h.logger.Error("create topic", "error", err, "topic", topic.Name)
+		} else {
+			result.ErrorCode = protocol.None
+			h.logger.Info("created topic",
+				"topic", topic.Name,
+				"partitions", topic.NumPartitions,
+			)
+		}
+
+		resp.Topics = append(resp.Topics, result)
+	}
+
+	var buf bytes.Buffer
+	respHeader := &protocol.ResponseHeader{
+		CorrelationID: header.CorrelationID,
+	}
+	if err := respHeader.Encode(&buf); err != nil {
+		return nil, fmt.Errorf("encode response header: %w", err)
+	}
+
+	if err := resp.Encode(&buf); err != nil {
+		return nil, fmt.Errorf("encode create topics response: %w", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+// handleDeleteTopics handles DeleteTopics requests
+func (h *Handler) handleDeleteTopics(r io.Reader, header *protocol.RequestHeader) ([]byte, error) {
+	req, err := protocol.DecodeDeleteTopicsRequest(r, header)
+	if err != nil {
+		return nil, fmt.Errorf("decode delete topics request: %w", err)
+	}
+
+	h.logger.Debug("delete topics request",
+		"correlation_id", header.CorrelationID,
+		"topics", len(req.TopicNames),
+		"timeout_ms", req.TimeoutMs,
+	)
+
+	resp := &protocol.DeleteTopicsResponse{
+		ThrottleTimeMs: 0,
+		Responses:      make([]protocol.DeletableTopicResult, 0, len(req.TopicNames)),
+	}
+
+	for _, topicName := range req.TopicNames {
+		result := protocol.DeletableTopicResult{
+			Name: topicName,
+		}
+
+		// Check if topic exists
+		if _, exists := h.backend.GetTopic(topicName); !exists {
+			result.ErrorCode = protocol.UnknownTopicOrPartition
+			errMsg := "unknown topic"
+			result.ErrorMessage = &errMsg
+			resp.Responses = append(resp.Responses, result)
+			continue
+		}
+
+		// Delete topic
+		err := h.backend.DeleteTopic(topicName)
+		if err != nil {
+			result.ErrorCode = protocol.InvalidRequest
+			errMsg := err.Error()
+			result.ErrorMessage = &errMsg
+			h.logger.Error("delete topic", "error", err, "topic", topicName)
+		} else {
+			result.ErrorCode = protocol.None
+			h.logger.Info("deleted topic", "topic", topicName)
+		}
+
+		resp.Responses = append(resp.Responses, result)
+	}
+
+	var buf bytes.Buffer
+	respHeader := &protocol.ResponseHeader{
+		CorrelationID: header.CorrelationID,
+	}
+	if err := respHeader.Encode(&buf); err != nil {
+		return nil, fmt.Errorf("encode response header: %w", err)
+	}
+
+	if err := resp.Encode(&buf); err != nil {
+		return nil, fmt.Errorf("encode delete topics response: %w", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+// handleDescribeConfigs handles DescribeConfigs requests
+func (h *Handler) handleDescribeConfigs(r io.Reader, header *protocol.RequestHeader) ([]byte, error) {
+	req, err := protocol.DecodeDescribeConfigsRequest(r, header)
+	if err != nil {
+		return nil, fmt.Errorf("decode describe configs request: %w", err)
+	}
+
+	h.logger.Debug("describe configs request",
+		"correlation_id", header.CorrelationID,
+		"resources", len(req.Resources),
+	)
+
+	resp := &protocol.DescribeConfigsResponse{
+		ThrottleTimeMs: 0,
+		Results:        make([]protocol.DescribeConfigsResult, 0, len(req.Resources)),
+	}
+
+	for _, resource := range req.Resources {
+		result := protocol.DescribeConfigsResult{
+			ResourceType: resource.ResourceType,
+			ResourceName: resource.ResourceName,
+			Configs:      make([]protocol.DescribeConfigsEntry, 0),
+		}
+
+		// Only support topic configs for now
+		if resource.ResourceType != protocol.ResourceTypeTopic {
+			result.ErrorCode = protocol.InvalidRequest
+			errMsg := "only topic configs are supported"
+			result.ErrorMessage = &errMsg
+			resp.Results = append(resp.Results, result)
+			continue
+		}
+
+		// Check if topic exists
+		if _, exists := h.backend.GetTopic(resource.ResourceName); !exists {
+			result.ErrorCode = protocol.UnknownTopicOrPartition
+			errMsg := "unknown topic"
+			result.ErrorMessage = &errMsg
+			resp.Results = append(resp.Results, result)
+			continue
+		}
+
+		// Return default topic configurations
+		defaultConfigs := []protocol.DescribeConfigsEntry{
+			{
+				Name:        "compression.type",
+				Value:       stringPtr("producer"),
+				ReadOnly:    false,
+				IsDefault:   true,
+				IsSensitive: false,
+			},
+			{
+				Name:        "cleanup.policy",
+				Value:       stringPtr("delete"),
+				ReadOnly:    false,
+				IsDefault:   true,
+				IsSensitive: false,
+			},
+			{
+				Name:        "retention.ms",
+				Value:       stringPtr("604800000"), // 7 days
+				ReadOnly:    false,
+				IsDefault:   true,
+				IsSensitive: false,
+			},
+			{
+				Name:        "segment.ms",
+				Value:       stringPtr("604800000"), // 7 days
+				ReadOnly:    false,
+				IsDefault:   true,
+				IsSensitive: false,
+			},
+		}
+
+		// Filter by requested config names if specified
+		if len(resource.ConfigNames) > 0 {
+			filteredConfigs := make([]protocol.DescribeConfigsEntry, 0)
+			for _, requestedName := range resource.ConfigNames {
+				for _, config := range defaultConfigs {
+					if config.Name == requestedName {
+						filteredConfigs = append(filteredConfigs, config)
+						break
+					}
+				}
+			}
+			result.Configs = filteredConfigs
+		} else {
+			result.Configs = defaultConfigs
+		}
+
+		result.ErrorCode = protocol.None
+		resp.Results = append(resp.Results, result)
+	}
+
+	var buf bytes.Buffer
+	respHeader := &protocol.ResponseHeader{
+		CorrelationID: header.CorrelationID,
+	}
+	if err := respHeader.Encode(&buf); err != nil {
+		return nil, fmt.Errorf("encode response header: %w", err)
+	}
+
+	if err := resp.Encode(&buf); err != nil {
+		return nil, fmt.Errorf("encode describe configs response: %w", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+// stringPtr returns a pointer to a string
+func stringPtr(s string) *string {
+	return &s
 }
