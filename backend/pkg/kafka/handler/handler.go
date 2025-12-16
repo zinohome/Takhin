@@ -28,7 +28,7 @@ type Handler struct {
 func New(cfg *config.Config, topicMgr *topic.Manager) *Handler {
 	coord := coordinator.NewCoordinator()
 	coord.Start()
-	
+
 	return &Handler{
 		config:       cfg,
 		logger:       logger.Default().WithComponent("kafka-handler"),
@@ -42,7 +42,7 @@ func New(cfg *config.Config, topicMgr *topic.Manager) *Handler {
 func NewWithBackend(cfg *config.Config, topicMgr *topic.Manager, backend Backend) *Handler {
 	coord := coordinator.NewCoordinator()
 	coord.Start()
-	
+
 	return &Handler{
 		config:       cfg,
 		logger:       logger.Default().WithComponent("kafka-handler"),
@@ -548,7 +548,7 @@ func (h *Handler) handleOffsetFetch(r io.Reader, header *protocol.RequestHeader)
 
 		for i, topic := range req.Topics {
 			resp.Topics[i].Name = topic.Name
-			
+
 			if topic.PartitionIndexes == nil {
 				// Fetch all partitions - not implemented yet
 				resp.Topics[i].Partitions = []protocol.OffsetFetchResponsePartition{}
