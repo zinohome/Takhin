@@ -223,10 +223,10 @@
 - ✅ 支持多 Partition
 - ✅ 副本自动同步
 
-#### Sprint 9-10: 高级特性 (4周) - ✅ Consumer Group 完成 (2025-12-16)
+#### Sprint 9-10: 高级特性 (4周) - 进行中
 
 **任务清单**
-- [x] Consumer Group (完成)
+- [x] Consumer Group (✅ 完成 2025-12-16)
   - [x] Group 状态机实现
   - [x] Coordinator 协调器
   - [x] Offset 管理 (内存存储)
@@ -243,11 +243,17 @@
 - [ ] 事务支持
   - [ ] 事务协调器
   - [ ] 两阶段提交
-- [ ] 压缩
-  - [ ] GZIP
-  - [ ] Snappy
-  - [ ] LZ4
-  - [ ] ZSTD
+- [x] 压缩 (✅ 完成 2025-12-16)
+  - [x] None (无压缩)
+  - [x] GZIP (标准压缩)
+  - [x] Snappy (高速压缩，Google)
+  - [x] LZ4 (平衡压缩，速度快)
+  - [x] ZSTD (最佳压缩率，Facebook)
+  - [x] 性能基准测试
+    - Snappy: 最快 (~1µs 压缩/解压)
+    - LZ4: 快速 (~2µs 压缩)
+    - GZIP: 平衡 (~86µs 压缩)
+    - ZSTD: 最佳压缩率 (3.07%)
 - [ ] Admin API
   - [ ] Topic CRUD
   - [ ] Config 管理
