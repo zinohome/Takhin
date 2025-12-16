@@ -324,3 +324,93 @@ func (h *RequestHeader) Encode(w io.Writer) error {
 func (h *ResponseHeader) Encode(w io.Writer) error {
 	return WriteInt32(w, h.CorrelationID)
 }
+
+// Byte-level encoding/decoding helpers for new protocols
+
+// encodeInt16 encodes an int16 to bytes
+func encodeInt16(v int16) []byte {
+	buf := make([]byte, 2)
+	binary.BigEndian.PutUint16(buf, uint16(v))
+	return buf
+}
+
+// encodeInt32 encodes an int32 to bytes
+func encodeInt32(v int32) []byte {
+	buf := make([]byte, 4)
+	binary.BigEndian.PutUint32(buf, uint32(v))
+	return buf
+}
+
+// encodeInt64 encodes an int64 to bytes
+func encodeInt64(v int64) []byte {
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, uint64(v))
+	return buf
+}
+
+// encodeString encodes a string to bytes
+func encodeString(s string) []byte {
+	buf := encodeInt16(int16(len(s)))
+	buf = append(buf, []byte(s)...)
+	return buf
+}
+
+// encodeNullableString encodes a nullable string to bytes
+func encodeNullableString(s string) []byte {
+	if s == "" {
+		return encodeInt16(-1)
+	}
+	return encodeString(s)
+}
+
+// encodeBytes encodes bytes to bytes with length prefix
+func encodeBytes(data []byte) []byte {
+	if data == nil {
+		return encodeInt32(-1)
+	}
+	buf := encodeInt32(int32(len(data)))
+	buf = append(buf, data...)
+	return buf
+}
+
+// decodeInt16 decodes an int16 from bytes
+func decodeInt16(data []byte) int16 {
+	return int16(binary.BigEndian.Uint16(data))
+}
+
+// decodeInt32 decodes an int32 from bytes
+func decodeInt32(data []byte) int32 {
+	return int32(binary.BigEndian.Uint32(data))
+}
+
+// decodeInt64 decodes an int64 from bytes
+func decodeInt64(data []byte) int64 {
+	return int64(binary.BigEndian.Uint64(data))
+}
+
+// decodeString decodes a string from bytes
+func decodeString(data []byte) (string, int) {
+	length := decodeInt16(data)
+	if length < 0 {
+		return "", 2
+	}
+	return string(data[2 : 2+length]), 2 + int(length)
+}
+
+// decodeNullableString decodes a nullable string from bytes
+func decodeNullableString(data []byte) (string, int) {
+	length := decodeInt16(data)
+	if length < 0 {
+		return "", 2
+	}
+	return string(data[2 : 2+length]), 2 + int(length)
+}
+
+// decodeBytes decodes bytes from bytes
+func decodeBytes(data []byte) ([]byte, int) {
+	length := decodeInt32(data)
+	if length < 0 {
+		return nil, 4
+	}
+	return data[4 : 4+length], 4 + int(length)
+}

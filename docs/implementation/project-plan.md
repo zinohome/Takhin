@@ -223,13 +223,23 @@
 - ✅ 支持多 Partition
 - ✅ 副本自动同步
 
-#### Sprint 9-10: 高级特性 (4周)
+#### Sprint 9-10: 高级特性 (4周) - ✅ Consumer Group 完成 (2025-12-16)
 
 **任务清单**
-- [ ] Consumer Group
-  - [ ] 成员协议
-  - [ ] Offset 管理
-  - [ ] Rebalance
+- [x] Consumer Group (完成)
+  - [x] Group 状态机实现
+  - [x] Coordinator 协调器
+  - [x] Offset 管理 (内存存储)
+  - [x] Rebalance 机制
+  - [x] Kafka 协议实现
+    - [x] FindCoordinator
+    - [x] JoinGroup
+    - [x] SyncGroup
+    - [x] Heartbeat
+    - [x] OffsetCommit
+    - [x] OffsetFetch
+    - [x] LeaveGroup
+  - [x] Handler 集成
 - [ ] 事务支持
   - [ ] 事务协调器
   - [ ] 两阶段提交
