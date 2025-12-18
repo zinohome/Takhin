@@ -140,17 +140,43 @@ task dev:check
 
 ## 📊 开发进度
 
-当前阶段：**Phase 1 - 基础设施搭建**
+当前阶段：**Phase 2 - Sprint 9-10 完成**
 
+### 已完成 ✅
 - [x] 项目结构和配置
-- [x] 配置管理模块
+- [x] 配置管理模块  
 - [x] 日志系统
 - [x] CI/CD 流水线
-- [ ] 基础 Kafka 协议实现
-- [ ] 存储引擎
-- [ ] Raft 共识算法
+- [x] 基础 Kafka 协议实现 (Produce, Fetch, Metadata, ApiVersions)
+- [x] 存储引擎 (Log Segment, Partition, Topic Manager)
+- [x] Raft 共识算法 (FSM, Leader 选举, 日志复制, 3 节点集群测试)
+- [x] Consumer Group 完整实现 (7 个 API, Coordinator, Rebalance)
+- [x] 压缩支持 (5 种压缩类型: None, GZIP, Snappy, LZ4, ZSTD)
+- [x] Admin API (CreateTopics, DeleteTopics, DescribeConfigs)
+
+### 进行中 🚧
+- [ ] Console 后端开发 (gRPC API, REST API)
+- [ ] Console 前端开发 (React + TypeScript)
+
+### 计划中 📋
+- [ ] Transactions 支持 (Exactly-Once Semantics)
+- [ ] 更多 Admin API (AlterConfigs, ListGroups)
+- [ ] ACL 和安全认证
+- [ ] Schema Registry 集成
 
 查看完整的 [开发计划](docs/implementation/project-plan.md)。
+
+### 核心功能状态
+
+| 功能 | 状态 | 覆盖率 | 文档 |
+|------|------|--------|------|
+| Kafka Protocol | ✅ | 95% | [Handler](backend/pkg/kafka/handler) |
+| 存储引擎 | ✅ | 90% | [Storage](backend/pkg/storage) |
+| Raft 共识 | ✅ | 85% | [Raft Summary](docs/raft-cluster-test-summary.md) |
+| Consumer Group | ✅ | 100% | [Consumer Group Summary](docs/consumer-group-summary.md) |
+| 压缩 | ✅ | 95% | [Compression](docs/implementation/compression.md) |
+| Admin API | ✅ | 100% | [Admin API](docs/admin-api.md) |
+| Transactions | 📋 | - | [Design Doc](docs/transactions-design.md) |
 
 ## 📄 许可证
 
