@@ -124,6 +124,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 // @Tags         Topics
 // @Produce      json
 // @Success      200  {array}   TopicSummary
+// @Security     ApiKeyAuth
 // @Router       /topics [get]
 func (s *Server) handleListTopics(w http.ResponseWriter, r *http.Request) {
 	topics := s.topicManager.ListTopics()
@@ -162,6 +163,7 @@ func (s *Server) handleListTopics(w http.ResponseWriter, r *http.Request) {
 // @Param        topic  path      string  true  "Topic name"
 // @Success      200    {object}  TopicDetail
 // @Failure      404    {object}  map[string]string
+// @Security     ApiKeyAuth
 // @Router       /topics/{topic} [get]
 func (s *Server) handleGetTopic(w http.ResponseWriter, r *http.Request) {
 	topicName := chi.URLParam(r, "topic")
@@ -200,6 +202,7 @@ func (s *Server) handleGetTopic(w http.ResponseWriter, r *http.Request) {
 // @Success      201      {object}  map[string]string
 // @Failure      400      {object}  map[string]string
 // @Failure      500      {object}  map[string]string
+// @Security     ApiKeyAuth
 // @Router       /topics [post]
 func (s *Server) handleCreateTopic(w http.ResponseWriter, r *http.Request) {
 	var req CreateTopicRequest
@@ -236,6 +239,7 @@ func (s *Server) handleCreateTopic(w http.ResponseWriter, r *http.Request) {
 // @Param        topic  path  string  true  "Topic name"
 // @Success      204    "No Content"
 // @Failure      500    {object}  map[string]string
+// @Security     ApiKeyAuth
 // @Router       /topics/{topic} [delete]
 func (s *Server) handleDeleteTopic(w http.ResponseWriter, r *http.Request) {
 	topicName := chi.URLParam(r, "topic")
@@ -264,6 +268,7 @@ func (s *Server) handleDeleteTopic(w http.ResponseWriter, r *http.Request) {
 // @Success      200        {array}   Message
 // @Failure      400        {object}  map[string]string
 // @Failure      404        {object}  map[string]string
+// @Security     ApiKeyAuth
 // @Router       /topics/{topic}/messages [get]
 func (s *Server) handleGetMessages(w http.ResponseWriter, r *http.Request) {
 	topicName := chi.URLParam(r, "topic")
@@ -353,6 +358,7 @@ func (s *Server) handleGetMessages(w http.ResponseWriter, r *http.Request) {
 // @Failure      400      {object}  map[string]string
 // @Failure      404      {object}  map[string]string
 // @Failure      500      {object}  map[string]string
+// @Security     ApiKeyAuth
 // @Router       /topics/{topic}/messages [post]
 func (s *Server) handleProduceMessage(w http.ResponseWriter, r *http.Request) {
 	topicName := chi.URLParam(r, "topic")
@@ -394,6 +400,7 @@ func (s *Server) handleProduceMessage(w http.ResponseWriter, r *http.Request) {
 // @Tags         Consumer Groups
 // @Produce      json
 // @Success      200  {array}   ConsumerGroupSummary
+// @Security     ApiKeyAuth
 // @Router       /consumer-groups [get]
 func (s *Server) handleListConsumerGroups(w http.ResponseWriter, r *http.Request) {
 	groupIDs := s.coordinator.ListGroups()
@@ -424,6 +431,7 @@ func (s *Server) handleListConsumerGroups(w http.ResponseWriter, r *http.Request
 // @Param        group  path      string  true  "Consumer group ID"
 // @Success      200    {object}  ConsumerGroupDetail
 // @Failure      404    {object}  map[string]string
+// @Security     ApiKeyAuth
 // @Router       /consumer-groups/{group} [get]
 func (s *Server) handleGetConsumerGroup(w http.ResponseWriter, r *http.Request) {
 	groupID := chi.URLParam(r, "group")

@@ -24,6 +24,11 @@
     "paths": {
         "/consumer-groups": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Get a list of all consumer groups with their status",
                 "produces": [
                     "application/json"
@@ -38,7 +43,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/pkg_console.ConsumerGroupSummary"
+                                "$ref": "#/definitions/console.ConsumerGroupSummary"
                             }
                         }
                     }
@@ -47,6 +52,11 @@
         },
         "/consumer-groups/{group}": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Get detailed information about a specific consumer group",
                 "produces": [
                     "application/json"
@@ -68,7 +78,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/pkg_console.ConsumerGroupDetail"
+                            "$ref": "#/definitions/console.ConsumerGroupDetail"
                         }
                     },
                     "404": {
@@ -108,6 +118,11 @@
         },
         "/topics": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Get a list of all topics with their partition information",
                 "produces": [
                     "application/json"
@@ -122,13 +137,18 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/pkg_console.TopicSummary"
+                                "$ref": "#/definitions/console.TopicSummary"
                             }
                         }
                     }
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Create a new topic with the specified number of partitions",
                 "consumes": [
                     "application/json"
@@ -147,7 +167,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/pkg_console.CreateTopicRequest"
+                            "$ref": "#/definitions/console.CreateTopicRequest"
                         }
                     }
                 ],
@@ -184,6 +204,11 @@
         },
         "/topics/{topic}": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Get detailed information about a specific topic",
                 "produces": [
                     "application/json"
@@ -205,7 +230,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/pkg_console.TopicDetail"
+                            "$ref": "#/definitions/console.TopicDetail"
                         }
                     },
                     "404": {
@@ -220,6 +245,11 @@
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Delete a topic and all its data",
                 "tags": [
                     "Topics"
@@ -252,6 +282,11 @@
         },
         "/topics/{topic}/messages": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Fetch messages from a specific topic partition",
                 "produces": [
                     "application/json"
@@ -296,7 +331,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/pkg_console.Message"
+                                "$ref": "#/definitions/console.Message"
                             }
                         }
                     },
@@ -321,6 +356,11 @@
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Send a message to a specific topic partition",
                 "consumes": [
                     "application/json"
@@ -346,7 +386,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/pkg_console.ProduceMessageRequest"
+                            "$ref": "#/definitions/console.ProduceMessageRequest"
                         }
                     }
                 ],
@@ -390,7 +430,7 @@
         }
     },
     "definitions": {
-        "pkg_console.ConsumerGroupDetail": {
+        "console.ConsumerGroupDetail": {
             "type": "object",
             "properties": {
                 "groupId": {
@@ -399,13 +439,13 @@
                 "members": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/pkg_console.ConsumerGroupMember"
+                        "$ref": "#/definitions/console.ConsumerGroupMember"
                     }
                 },
                 "offsetCommits": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/pkg_console.ConsumerGroupOffsetCommit"
+                        "$ref": "#/definitions/console.ConsumerGroupOffsetCommit"
                     }
                 },
                 "protocol": {
@@ -419,7 +459,7 @@
                 }
             }
         },
-        "pkg_console.ConsumerGroupMember": {
+        "console.ConsumerGroupMember": {
             "type": "object",
             "properties": {
                 "clientHost": {
@@ -439,7 +479,7 @@
                 }
             }
         },
-        "pkg_console.ConsumerGroupOffsetCommit": {
+        "console.ConsumerGroupOffsetCommit": {
             "type": "object",
             "properties": {
                 "metadata": {
@@ -456,7 +496,7 @@
                 }
             }
         },
-        "pkg_console.ConsumerGroupSummary": {
+        "console.ConsumerGroupSummary": {
             "type": "object",
             "properties": {
                 "groupId": {
@@ -470,7 +510,7 @@
                 }
             }
         },
-        "pkg_console.CreateTopicRequest": {
+        "console.CreateTopicRequest": {
             "type": "object",
             "properties": {
                 "name": {
@@ -481,7 +521,7 @@
                 }
             }
         },
-        "pkg_console.Message": {
+        "console.Message": {
             "type": "object",
             "properties": {
                 "key": {
@@ -501,7 +541,7 @@
                 }
             }
         },
-        "pkg_console.PartitionInfo": {
+        "console.PartitionInfo": {
             "type": "object",
             "properties": {
                 "highWaterMark": {
@@ -512,7 +552,7 @@
                 }
             }
         },
-        "pkg_console.ProduceMessageRequest": {
+        "console.ProduceMessageRequest": {
             "type": "object",
             "properties": {
                 "key": {
@@ -526,7 +566,7 @@
                 }
             }
         },
-        "pkg_console.TopicDetail": {
+        "console.TopicDetail": {
             "type": "object",
             "properties": {
                 "name": {
@@ -538,12 +578,12 @@
                 "partitions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/pkg_console.PartitionInfo"
+                        "$ref": "#/definitions/console.PartitionInfo"
                     }
                 }
             }
         },
-        "pkg_console.TopicSummary": {
+        "console.TopicSummary": {
             "type": "object",
             "properties": {
                 "name": {
@@ -555,10 +595,18 @@
                 "partitions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/pkg_console.PartitionInfo"
+                        "$ref": "#/definitions/console.PartitionInfo"
                     }
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "description": "API Key authentication. Use 'your-api-key' or 'Bearer your-api-key' format.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     },
     "tags": [

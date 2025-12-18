@@ -26,6 +26,11 @@ const docTemplate = `{
     "paths": {
         "/consumer-groups": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Get a list of all consumer groups with their status",
                 "produces": [
                     "application/json"
@@ -40,7 +45,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/pkg_console.ConsumerGroupSummary"
+                                "$ref": "#/definitions/console.ConsumerGroupSummary"
                             }
                         }
                     }
@@ -49,6 +54,11 @@ const docTemplate = `{
         },
         "/consumer-groups/{group}": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Get detailed information about a specific consumer group",
                 "produces": [
                     "application/json"
@@ -70,7 +80,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/pkg_console.ConsumerGroupDetail"
+                            "$ref": "#/definitions/console.ConsumerGroupDetail"
                         }
                     },
                     "404": {
@@ -110,6 +120,11 @@ const docTemplate = `{
         },
         "/topics": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Get a list of all topics with their partition information",
                 "produces": [
                     "application/json"
@@ -124,13 +139,18 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/pkg_console.TopicSummary"
+                                "$ref": "#/definitions/console.TopicSummary"
                             }
                         }
                     }
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Create a new topic with the specified number of partitions",
                 "consumes": [
                     "application/json"
@@ -149,7 +169,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/pkg_console.CreateTopicRequest"
+                            "$ref": "#/definitions/console.CreateTopicRequest"
                         }
                     }
                 ],
@@ -186,6 +206,11 @@ const docTemplate = `{
         },
         "/topics/{topic}": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Get detailed information about a specific topic",
                 "produces": [
                     "application/json"
@@ -207,7 +232,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/pkg_console.TopicDetail"
+                            "$ref": "#/definitions/console.TopicDetail"
                         }
                     },
                     "404": {
@@ -222,6 +247,11 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Delete a topic and all its data",
                 "tags": [
                     "Topics"
@@ -254,6 +284,11 @@ const docTemplate = `{
         },
         "/topics/{topic}/messages": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Fetch messages from a specific topic partition",
                 "produces": [
                     "application/json"
@@ -298,7 +333,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/pkg_console.Message"
+                                "$ref": "#/definitions/console.Message"
                             }
                         }
                     },
@@ -323,6 +358,11 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Send a message to a specific topic partition",
                 "consumes": [
                     "application/json"
@@ -348,7 +388,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/pkg_console.ProduceMessageRequest"
+                            "$ref": "#/definitions/console.ProduceMessageRequest"
                         }
                     }
                 ],
@@ -392,7 +432,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "pkg_console.ConsumerGroupDetail": {
+        "console.ConsumerGroupDetail": {
             "type": "object",
             "properties": {
                 "groupId": {
@@ -401,13 +441,13 @@ const docTemplate = `{
                 "members": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/pkg_console.ConsumerGroupMember"
+                        "$ref": "#/definitions/console.ConsumerGroupMember"
                     }
                 },
                 "offsetCommits": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/pkg_console.ConsumerGroupOffsetCommit"
+                        "$ref": "#/definitions/console.ConsumerGroupOffsetCommit"
                     }
                 },
                 "protocol": {
@@ -421,7 +461,7 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.ConsumerGroupMember": {
+        "console.ConsumerGroupMember": {
             "type": "object",
             "properties": {
                 "clientHost": {
@@ -441,7 +481,7 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.ConsumerGroupOffsetCommit": {
+        "console.ConsumerGroupOffsetCommit": {
             "type": "object",
             "properties": {
                 "metadata": {
@@ -458,7 +498,7 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.ConsumerGroupSummary": {
+        "console.ConsumerGroupSummary": {
             "type": "object",
             "properties": {
                 "groupId": {
@@ -472,7 +512,7 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.CreateTopicRequest": {
+        "console.CreateTopicRequest": {
             "type": "object",
             "properties": {
                 "name": {
@@ -483,7 +523,7 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.Message": {
+        "console.Message": {
             "type": "object",
             "properties": {
                 "key": {
@@ -503,7 +543,7 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.PartitionInfo": {
+        "console.PartitionInfo": {
             "type": "object",
             "properties": {
                 "highWaterMark": {
@@ -514,7 +554,7 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.ProduceMessageRequest": {
+        "console.ProduceMessageRequest": {
             "type": "object",
             "properties": {
                 "key": {
@@ -528,7 +568,7 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.TopicDetail": {
+        "console.TopicDetail": {
             "type": "object",
             "properties": {
                 "name": {
@@ -540,12 +580,12 @@ const docTemplate = `{
                 "partitions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/pkg_console.PartitionInfo"
+                        "$ref": "#/definitions/console.PartitionInfo"
                     }
                 }
             }
         },
-        "pkg_console.TopicSummary": {
+        "console.TopicSummary": {
             "type": "object",
             "properties": {
                 "name": {
@@ -557,10 +597,18 @@ const docTemplate = `{
                 "partitions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/pkg_console.PartitionInfo"
+                        "$ref": "#/definitions/console.PartitionInfo"
                     }
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "description": "API Key authentication. Use 'your-api-key' or 'Bearer your-api-key' format.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     },
     "tags": [
