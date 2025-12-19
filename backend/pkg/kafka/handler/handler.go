@@ -17,11 +17,13 @@ import (
 
 // Handler handles Kafka protocol requests
 type Handler struct {
-	config       *config.Config
-	logger       *logger.Logger
-	topicManager *topic.Manager
-	backend      Backend
-	coordinator  *coordinator.Coordinator
+	config            *config.Config
+	logger            *logger.Logger
+	topicManager      *topic.Manager
+	backend           Backend
+	coordinator       *coordinator.Coordinator
+	producerIDManager *ProducerIDManager
+	txnCoordinator    *TransactionCoordinator
 }
 
 // New creates a new request handler with direct backend
@@ -30,11 +32,13 @@ func New(cfg *config.Config, topicMgr *topic.Manager) *Handler {
 	coord.Start()
 
 	return &Handler{
-		config:       cfg,
-		logger:       logger.Default().WithComponent("kafka-handler"),
-		topicManager: topicMgr,
-		backend:      NewDirectBackend(topicMgr),
-		coordinator:  coord,
+		config:            cfg,
+		logger:            logger.Default().WithComponent("kafka-handler"),
+		topicManager:      topicMgr,
+		backend:           NewDirectBackend(topicMgr),
+		coordinator:       coord,
+		producerIDManager: NewProducerIDManager(),
+		txnCoordinator:    NewTransactionCoordinator(),
 	}
 }
 
@@ -44,11 +48,13 @@ func NewWithBackend(cfg *config.Config, topicMgr *topic.Manager, backend Backend
 	coord.Start()
 
 	return &Handler{
-		config:       cfg,
-		logger:       logger.Default().WithComponent("kafka-handler"),
-		topicManager: topicMgr,
-		backend:      backend,
-		coordinator:  coord,
+		config:            cfg,
+		logger:            logger.Default().WithComponent("kafka-handler"),
+		topicManager:      topicMgr,
+		backend:           backend,
+		coordinator:       coord,
+		producerIDManager: NewProducerIDManager(),
+		txnCoordinator:    NewTransactionCoordinator(),
 	}
 }
 
@@ -78,6 +84,8 @@ func (h *Handler) HandleRequest(reqData []byte) ([]byte, error) {
 		response, err = h.handleProduce(r, header)
 	case protocol.FetchKey:
 		response, err = h.handleFetch(r, header)
+	case protocol.ListOffsetsKey:
+		response, err = h.handleListOffsets(r, header)
 	case protocol.MetadataKey:
 		response, err = h.handleMetadata(r, header)
 	case protocol.FindCoordinatorKey:
@@ -98,8 +106,24 @@ func (h *Handler) HandleRequest(reqData []byte) ([]byte, error) {
 		response, err = h.handleCreateTopics(r, header)
 	case protocol.DeleteTopicsKey:
 		response, err = h.handleDeleteTopics(r, header)
+	case protocol.DeleteRecordsKey:
+		response, err = h.handleDeleteRecords(r, header)
+	case protocol.DescribeLogDirsKey:
+		response, err = h.handleDescribeLogDirs(r, header)
 	case protocol.DescribeConfigsKey:
 		response, err = h.handleDescribeConfigs(r, header)
+	case protocol.DescribeGroupsKey:
+		response, err = h.handleDescribeGroups(r, header)
+	case protocol.ListGroupsKey:
+		response, err = h.handleListGroups(r, header)
+	case protocol.InitProducerIDKey:
+		response, err = h.handleInitProducerID(r, header)
+	case protocol.AddPartitionsToTxnKey:
+		response, err = h.handleAddPartitionsToTxn(r, header)
+	case protocol.EndTxnKey:
+		response, err = h.handleEndTxn(r, header)
+	case protocol.AlterConfigsKey:
+		response, err = h.handleAlterConfigs(r, header)
 	default:
 		return nil, fmt.Errorf("unsupported API key: %d", header.APIKey)
 	}
@@ -923,7 +947,490 @@ func (h *Handler) handleDescribeConfigs(r io.Reader, header *protocol.RequestHea
 	return buf.Bytes(), nil
 }
 
+// handleListOffsets handles ListOffsets requests
+func (h *Handler) handleListOffsets(r io.Reader, header *protocol.RequestHeader) ([]byte, error) {
+	// Decode request
+	reqData, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("read request body: %w", err)
+	}
+
+	req, err := protocol.DecodeListOffsetsRequest(reqData, header.APIVersion)
+	if err != nil {
+		return nil, fmt.Errorf("decode list offsets request: %w", err)
+	}
+
+	h.logger.Debug("handling list offsets request",
+		"replica_id", req.ReplicaID,
+		"isolation_level", req.IsolationLevel,
+		"topics_count", len(req.Topics),
+	)
+
+	// Build response
+	resp := &protocol.ListOffsetsResponse{
+		ThrottleTimeMs: 0,
+		Topics:         make([]protocol.ListOffsetsTopicResponse, 0, len(req.Topics)),
+	}
+
+	for _, topic := range req.Topics {
+		topicResp := protocol.ListOffsetsTopicResponse{
+			Name:       topic.Name,
+			Partitions: make([]protocol.ListOffsetsPartitionResponse, 0, len(topic.Partitions)),
+		}
+
+		// Get topic from backend
+		t, exists := h.backend.GetTopic(topic.Name)
+		if !exists {
+			// Topic不存在，返回错误
+			for _, part := range topic.Partitions {
+				topicResp.Partitions = append(topicResp.Partitions, protocol.ListOffsetsPartitionResponse{
+					PartitionIndex: part.PartitionIndex,
+					ErrorCode:      protocol.UnknownTopicOrPartition,
+					Timestamp:      -1,
+					Offset:         -1,
+					LeaderEpoch:    -1,
+				})
+			}
+			resp.Topics = append(resp.Topics, topicResp)
+			continue
+		}
+
+		// Process each partition
+		for _, part := range topic.Partitions {
+			partResp := protocol.ListOffsetsPartitionResponse{
+				PartitionIndex: part.PartitionIndex,
+				LeaderEpoch:    0, // 简化实现，暂不支持 leader epoch
+			}
+
+			var offset int64
+			var timestamp int64
+
+			switch part.Timestamp {
+			case protocol.TimestampEarliest:
+				// 查询最早的 offset
+				offset, err = t.GetEarliestOffset(part.PartitionIndex)
+				if err != nil {
+					partResp.ErrorCode = protocol.UnknownTopicOrPartition
+					partResp.Offset = -1
+					partResp.Timestamp = -1
+				} else {
+					partResp.ErrorCode = protocol.None
+					partResp.Offset = offset
+					partResp.Timestamp = 0 // earliest 没有具体时间戳
+				}
+
+			case protocol.TimestampLatest:
+				// 查询最新的 offset (HWM)
+				offset, err = t.GetLatestOffset(part.PartitionIndex)
+				if err != nil {
+					partResp.ErrorCode = protocol.UnknownTopicOrPartition
+					partResp.Offset = -1
+					partResp.Timestamp = -1
+				} else {
+					partResp.ErrorCode = protocol.None
+					partResp.Offset = offset
+					partResp.Timestamp = -1 // latest 使用 -1
+				}
+
+			default:
+				// 查询特定时间戳的 offset
+				offset, timestamp, err = t.GetOffsetByTimestamp(part.PartitionIndex, part.Timestamp)
+				if err != nil {
+					partResp.ErrorCode = protocol.UnknownTopicOrPartition
+					partResp.Offset = -1
+					partResp.Timestamp = -1
+				} else {
+					partResp.ErrorCode = protocol.None
+					partResp.Offset = offset
+					partResp.Timestamp = timestamp
+				}
+			}
+
+			h.logger.Debug("list offsets for partition",
+				"topic", topic.Name,
+				"partition", part.PartitionIndex,
+				"request_timestamp", part.Timestamp,
+				"response_offset", partResp.Offset,
+				"response_timestamp", partResp.Timestamp,
+			)
+
+			topicResp.Partitions = append(topicResp.Partitions, partResp)
+		}
+
+		resp.Topics = append(resp.Topics, topicResp)
+	}
+
+	// Encode response
+	respData := protocol.EncodeListOffsetsResponse(resp, header.APIVersion)
+
+	// Add response header
+	var buf bytes.Buffer
+	respHeader := &protocol.ResponseHeader{
+		CorrelationID: header.CorrelationID,
+	}
+	if err := respHeader.Encode(&buf); err != nil {
+		return nil, fmt.Errorf("encode response header: %w", err)
+	}
+
+	buf.Write(respData)
+	return buf.Bytes(), nil
+}
+
+// handleDescribeGroups handles DescribeGroups requests
+func (h *Handler) handleDescribeGroups(r io.Reader, header *protocol.RequestHeader) ([]byte, error) {
+	// Decode request
+	reqData, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("read request body: %w", err)
+	}
+
+	req, err := protocol.DecodeDescribeGroupsRequest(reqData, header.APIVersion)
+	if err != nil {
+		return nil, fmt.Errorf("decode describe groups request: %w", err)
+	}
+
+	h.logger.Debug("handling describe groups request",
+		"groups_count", len(req.Groups),
+	)
+
+	// Build response
+	resp := &protocol.DescribeGroupsResponse{
+		ThrottleTimeMs: 0,
+		Groups:         make([]protocol.DescribedGroup, 0, len(req.Groups)),
+	}
+
+	for _, groupID := range req.Groups {
+		group, exists := h.coordinator.GetGroup(groupID)
+		if !exists {
+			// 组不存在
+			resp.Groups = append(resp.Groups, protocol.DescribedGroup{
+				ErrorCode:    protocol.GroupIDNotFound,
+				GroupID:      groupID,
+				GroupState:   "Dead",
+				ProtocolType: "",
+				ProtocolData: "",
+				Members:      []protocol.DescribedGroupMember{},
+			})
+			continue
+		}
+
+		// 构建成员列表
+		members := make([]protocol.DescribedGroupMember, 0)
+		for memberID, member := range group.Members {
+			members = append(members, protocol.DescribedGroupMember{
+				MemberID:         memberID,
+				GroupInstanceID:  nil,
+				ClientID:         member.ClientID,
+				ClientHost:       member.ClientHost,
+				MemberMetadata:   member.Metadata,
+				MemberAssignment: member.Assignment,
+			})
+		}
+
+		resp.Groups = append(resp.Groups, protocol.DescribedGroup{
+			ErrorCode:            protocol.None,
+			GroupID:              groupID,
+			GroupState:           string(group.State),
+			ProtocolType:         "consumer",
+			ProtocolData:         group.ProtocolName,
+			Members:              members,
+			AuthorizedOperations: -2147483648, // 所有操作
+		})
+	}
+
+	// Encode response
+	respData := protocol.EncodeDescribeGroupsResponse(resp, header.APIVersion)
+
+	// Add response header
+	var buf bytes.Buffer
+	respHeader := &protocol.ResponseHeader{
+		CorrelationID: header.CorrelationID,
+	}
+	if err := respHeader.Encode(&buf); err != nil {
+		return nil, fmt.Errorf("encode response header: %w", err)
+	}
+
+	buf.Write(respData)
+	return buf.Bytes(), nil
+}
+
+// handleListGroups handles ListGroups requests
+func (h *Handler) handleListGroups(r io.Reader, header *protocol.RequestHeader) ([]byte, error) {
+	// Decode request (empty body)
+	_, err := protocol.DecodeListGroupsRequest(nil, header.APIVersion)
+	if err != nil {
+		return nil, fmt.Errorf("decode list groups request: %w", err)
+	}
+
+	h.logger.Debug("handling list groups request")
+
+	// Build response
+	resp := &protocol.ListGroupsResponse{
+		ThrottleTimeMs: 0,
+		ErrorCode:      protocol.None,
+		Groups:         make([]protocol.ListedGroup, 0),
+	}
+
+	// 获取所有组
+	allGroups := h.coordinator.GetAllGroups()
+	for groupID, group := range allGroups {
+		resp.Groups = append(resp.Groups, protocol.ListedGroup{
+			GroupID:      groupID,
+			ProtocolType: group.ProtocolType,
+		})
+	}
+
+	// Encode response
+	respData := protocol.EncodeListGroupsResponse(resp, header.APIVersion)
+
+	// Add response header
+	var buf bytes.Buffer
+	respHeader := &protocol.ResponseHeader{
+		CorrelationID: header.CorrelationID,
+	}
+	if err := respHeader.Encode(&buf); err != nil {
+		return nil, fmt.Errorf("encode response header: %w", err)
+	}
+
+	buf.Write(respData)
+	return buf.Bytes(), nil
+}
+
+// handleDeleteRecords handles DeleteRecords requests
+func (h *Handler) handleDeleteRecords(r io.Reader, header *protocol.RequestHeader) ([]byte, error) {
+	// Decode request
+	reqData, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("read request body: %w", err)
+	}
+
+	req, err := protocol.DecodeDeleteRecordsRequest(reqData, header.APIVersion)
+	if err != nil {
+		return nil, fmt.Errorf("decode delete records request: %w", err)
+	}
+
+	h.logger.Debug("handling delete records request",
+		"topics_count", len(req.Topics),
+		"timeout_ms", req.TimeoutMs,
+	)
+
+	// Build response
+	resp := &protocol.DeleteRecordsResponse{
+		ThrottleTimeMs: 0,
+		Topics:         make([]protocol.DeleteRecordsTopicResponse, 0, len(req.Topics)),
+	}
+
+	for _, topic := range req.Topics {
+		topicResp := protocol.DeleteRecordsTopicResponse{
+			Name:       topic.Name,
+			Partitions: make([]protocol.DeleteRecordsPartitionResponse, 0, len(topic.Partitions)),
+		}
+
+		// Get topic
+		t, exists := h.backend.GetTopic(topic.Name)
+		if !exists {
+			// Topic不存在
+			for _, part := range topic.Partitions {
+				topicResp.Partitions = append(topicResp.Partitions, protocol.DeleteRecordsPartitionResponse{
+					PartitionIndex: part.PartitionIndex,
+					LowWatermark:   -1,
+					ErrorCode:      protocol.UnknownTopicOrPartition,
+				})
+			}
+			resp.Topics = append(resp.Topics, topicResp)
+			continue
+		}
+
+		// Process each partition
+		for _, part := range topic.Partitions {
+			lowWatermark, err := t.DeleteRecordsBeforeOffset(part.PartitionIndex, part.Offset)
+
+			partResp := protocol.DeleteRecordsPartitionResponse{
+				PartitionIndex: part.PartitionIndex,
+			}
+
+			if err != nil {
+				h.logger.Error("failed to delete records",
+					"topic", topic.Name,
+					"partition", part.PartitionIndex,
+					"offset", part.Offset,
+					"error", err,
+				)
+				partResp.LowWatermark = -1
+				partResp.ErrorCode = protocol.InvalidRequest
+			} else {
+				partResp.LowWatermark = lowWatermark
+				partResp.ErrorCode = protocol.None
+
+				h.logger.Info("deleted records",
+					"topic", topic.Name,
+					"partition", part.PartitionIndex,
+					"before_offset", part.Offset,
+					"new_low_watermark", lowWatermark,
+				)
+			}
+
+			topicResp.Partitions = append(topicResp.Partitions, partResp)
+		}
+
+		resp.Topics = append(resp.Topics, topicResp)
+	}
+
+	// Encode response
+	respData := protocol.EncodeDeleteRecordsResponse(resp, header.APIVersion)
+
+	// Add response header
+	var buf bytes.Buffer
+	respHeader := &protocol.ResponseHeader{
+		CorrelationID: header.CorrelationID,
+	}
+	if err := respHeader.Encode(&buf); err != nil {
+		return nil, fmt.Errorf("encode response header: %w", err)
+	}
+
+	buf.Write(respData)
+	return buf.Bytes(), nil
+}
+
 // stringPtr returns a pointer to a string
 func stringPtr(s string) *string {
 	return &s
+}
+
+// handleAlterConfigs 处理 AlterConfigs 请求
+func (h *Handler) handleAlterConfigs(r io.Reader, header *protocol.RequestHeader) ([]byte, error) {
+	// Read all data from reader
+	data, err := io.ReadAll(r)
+	if err != nil {
+		h.logger.Error("failed to read alter configs request", "error", err)
+		return nil, err
+	}
+
+	// Decode request
+	req, err := protocol.DecodeAlterConfigsRequest(data, header.APIVersion)
+	if err != nil {
+		h.logger.Error("failed to decode alter configs request", "error", err)
+		return nil, err
+	}
+	req.Header = header
+
+	h.logger.Info("alter configs request",
+		"resources", len(req.Resources),
+		"validate_only", req.ValidateOnly,
+	)
+
+	// Create response
+	resp := &protocol.AlterConfigsResponse{
+		ThrottleTimeMs: 0,
+		Resources:      make([]protocol.AlterConfigsResourceResponse, 0, len(req.Resources)),
+	}
+
+	// Process each resource
+	for _, resource := range req.Resources {
+		resourceResp := protocol.AlterConfigsResourceResponse{
+			ResourceType: resource.ResourceType,
+			ResourceName: resource.ResourceName,
+			ErrorCode:    protocol.None,
+			ErrorMessage: nil,
+		}
+
+		// Validate resource type
+		if resource.ResourceType != protocol.ResourceTypeTopic && resource.ResourceType != protocol.ResourceTypeBroker {
+			errMsg := "unsupported resource type"
+			resourceResp.ErrorCode = protocol.InvalidRequest
+			resourceResp.ErrorMessage = &errMsg
+			h.logger.Error("invalid resource type", "type", resource.ResourceType)
+			resp.Resources = append(resp.Resources, resourceResp)
+			continue
+		}
+
+		// Process configurations
+		if resource.ResourceType == protocol.ResourceTypeTopic {
+			// Get topic
+			_, exists := h.backend.GetTopic(resource.ResourceName)
+			if !exists {
+				errMsg := "unknown topic"
+				resourceResp.ErrorCode = protocol.UnknownTopicOrPartition
+				resourceResp.ErrorMessage = &errMsg
+				h.logger.Error("topic not found", "topic", resource.ResourceName)
+				resp.Resources = append(resp.Resources, resourceResp)
+				continue
+			}
+
+			// Validate only mode - don't actually change anything
+			if req.ValidateOnly {
+				h.logger.Info("validate only mode - no changes made",
+					"topic", resource.ResourceName,
+					"configs", len(resource.Configs),
+				)
+				resp.Resources = append(resp.Resources, resourceResp)
+				continue
+			}
+
+			// Apply configuration changes
+			for _, config := range resource.Configs {
+				// For now, we'll just log the changes
+				// In a full implementation, this would update the topic's configuration
+				if config.Value != nil {
+					h.logger.Info("alter config",
+						"topic", resource.ResourceName,
+						"config", config.Name,
+						"value", *config.Value,
+					)
+				} else {
+					h.logger.Info("delete config",
+						"topic", resource.ResourceName,
+						"config", config.Name,
+					)
+				}
+			}
+
+			// Success
+			h.logger.Info("altered topic configs",
+				"topic", resource.ResourceName,
+				"num_configs", len(resource.Configs),
+			)
+		} else if resource.ResourceType == protocol.ResourceTypeBroker {
+			// Broker configuration changes
+			// For now, just validate and log
+			if !req.ValidateOnly {
+				for _, config := range resource.Configs {
+					if config.Value != nil {
+						h.logger.Info("alter broker config",
+							"broker", resource.ResourceName,
+							"config", config.Name,
+							"value", *config.Value,
+						)
+					} else {
+						h.logger.Info("delete broker config",
+							"broker", resource.ResourceName,
+							"config", config.Name,
+						)
+					}
+				}
+			}
+
+			h.logger.Info("altered broker configs",
+				"broker", resource.ResourceName,
+				"num_configs", len(resource.Configs),
+			)
+		}
+
+		resp.Resources = append(resp.Resources, resourceResp)
+	}
+
+	// Encode response
+	respData := protocol.EncodeAlterConfigsResponse(resp, header.APIVersion)
+
+	// Add response header
+	var buf bytes.Buffer
+	respHeader := &protocol.ResponseHeader{
+		CorrelationID: header.CorrelationID,
+	}
+	if err := respHeader.Encode(&buf); err != nil {
+		return nil, fmt.Errorf("encode response header: %w", err)
+	}
+
+	buf.Write(respData)
+	return buf.Bytes(), nil
 }

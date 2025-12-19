@@ -194,3 +194,25 @@ func (l *Log) findSegmentIndex(offset int64) int {
 	}
 	return idx - 1
 }
+
+// SearchByTimestamp searches for the first offset whose timestamp >= the given timestamp
+func (l *Log) SearchByTimestamp(timestamp int64) (int64, int64, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+
+	if len(l.segments) == 0 {
+		return 0, 0, fmt.Errorf("no segments available")
+	}
+
+	// Search through segments to find the one containing the timestamp
+	for _, segment := range l.segments {
+		// Try to find in this segment's time index
+		offset, actualTimestamp, err := segment.SearchByTimestamp(timestamp)
+		if err == nil {
+			return offset, actualTimestamp, nil
+		}
+	}
+
+	// If not found, return the next available offset (HWM)
+	return l.HighWaterMark(), timestamp, nil
+}

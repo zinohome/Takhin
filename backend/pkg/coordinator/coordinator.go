@@ -240,3 +240,27 @@ func (c *Coordinator) Start() {
 		}
 	}()
 }
+
+// GetAllGroups returns all groups
+func (c *Coordinator) GetAllGroups() map[string]*GroupInfo {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	result := make(map[string]*GroupInfo, len(c.groups))
+	for groupID, group := range c.groups {
+		result[groupID] = &GroupInfo{
+			GroupID:      groupID,
+			ProtocolType: group.ProtocolType,
+			State:        string(group.State),
+		}
+	}
+
+	return result
+}
+
+// GroupInfo contains basic group information
+type GroupInfo struct {
+	GroupID      string
+	ProtocolType string
+	State        string
+}

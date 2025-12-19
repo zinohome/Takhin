@@ -357,7 +357,7 @@ func TestDescribeConfigs(t *testing.T) {
 	req.Header.Encode(&buf)
 	protocol.WriteArray(&buf, len(req.Resources))
 	for _, resource := range req.Resources {
-		protocol.WriteInt8(&buf, resource.ResourceType)
+		protocol.WriteInt8(&buf, int8(resource.ResourceType))
 		protocol.WriteString(&buf, resource.ResourceName)
 		if resource.ConfigNames == nil {
 			protocol.WriteArray(&buf, -1) // null array
@@ -387,7 +387,7 @@ func TestDescribeConfigs(t *testing.T) {
 	assert.Empty(t, errorMsg)
 
 	resourceType, _ := protocol.ReadInt8(respReader)
-	assert.Equal(t, protocol.ResourceTypeTopic, resourceType)
+	assert.Equal(t, int8(protocol.ResourceTypeTopic), resourceType)
 
 	resourceName, _ := protocol.ReadString(respReader)
 	assert.Equal(t, "config-topic", resourceName)
@@ -443,7 +443,7 @@ func TestDescribeConfigsTopicNotFound(t *testing.T) {
 	req.Header.Encode(&buf)
 	protocol.WriteArray(&buf, len(req.Resources))
 	for _, resource := range req.Resources {
-		protocol.WriteInt8(&buf, resource.ResourceType)
+		protocol.WriteInt8(&buf, int8(resource.ResourceType))
 		protocol.WriteString(&buf, resource.ResourceName)
 		protocol.WriteArray(&buf, -1) // null
 	}
@@ -534,7 +534,7 @@ func TestAdminAPIEndToEnd(t *testing.T) {
 	describeReq.Header.Encode(&buf)
 	protocol.WriteArray(&buf, len(describeReq.Resources))
 	for _, resource := range describeReq.Resources {
-		protocol.WriteInt8(&buf, resource.ResourceType)
+		protocol.WriteInt8(&buf, int8(resource.ResourceType))
 		protocol.WriteString(&buf, resource.ResourceName)
 		protocol.WriteArray(&buf, -1)
 	}

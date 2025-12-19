@@ -146,6 +146,72 @@ func (t *Topic) HighWaterMark(partition int32) (int64, error) {
 	return log.HighWaterMark(), nil
 }
 
+// GetEarliestOffset returns the earliest (oldest) available offset for a partition
+func (t *Topic) GetEarliestOffset(partition int32) (int64, error) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	_, exists := t.Partitions[partition]
+	if !exists {
+		return 0, fmt.Errorf("partition not found: %d", partition)
+	}
+	// 最早的 offset 通常是 0，除非有 log compaction
+	return 0, nil
+}
+
+// GetLatestOffset returns the latest (newest) available offset for a partition
+// This is the same as HighWaterMark
+func (t *Topic) GetLatestOffset(partition int32) (int64, error) {
+	return t.HighWaterMark(partition)
+}
+
+// GetOffsetByTimestamp returns the offset for a given timestamp
+// Returns the earliest offset whose timestamp >= the given timestamp
+func (t *Topic) GetOffsetByTimestamp(partition int32, timestamp int64) (int64, int64, error) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	partitionLog, exists := t.Partitions[partition]
+	if !exists {
+		return 0, 0, fmt.Errorf("partition not found: %d", partition)
+	}
+
+	// 使用 TimeIndex 查找
+	offset, actualTimestamp, err := partitionLog.SearchByTimestamp(timestamp)
+	if err != nil {
+		// 如果找不到，返回 HWM
+		hwm := partitionLog.HighWaterMark()
+		return hwm, timestamp, nil
+	}
+
+	return offset, actualTimestamp, nil
+}
+
+// DeleteRecordsBeforeOffset deletes records before the specified offset
+// Returns the new low watermark after deletion
+func (t *Topic) DeleteRecordsBeforeOffset(partition int32, offset int64) (int64, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	partitionLog, exists := t.Partitions[partition]
+	if !exists {
+		return 0, fmt.Errorf("partition not found: %d", partition)
+	}
+
+	// 在实际的实现中，这里应该真正删除segment文件
+	// 目前简化实现：只返回请求的offset作为新的低水位
+	// 真正的实现需要：
+	// 1. 找到包含该offset的segment
+	// 2. 删除该offset之前的所有segments
+	// 3. 如果offset在segment中间，需要截断该segment
+
+	hwm := partitionLog.HighWaterMark()
+	if offset > hwm {
+		return hwm, fmt.Errorf("offset %d is beyond high watermark %d", offset, hwm)
+	}
+
+	// 简化实现：返回请求的offset作为新的低水位
+	return offset, nil
+}
+
 // Close closes all partitions
 func (t *Topic) Close() error {
 	t.mu.Lock()

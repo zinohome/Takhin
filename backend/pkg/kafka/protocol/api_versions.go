@@ -78,5 +78,6 @@ func GetSupportedAPIVersions() []APIVersion {
 		{APIKey: ApiVersionsKey, MinVersion: 0, MaxVersion: 2},
 		{APIKey: CreateTopicsKey, MinVersion: 0, MaxVersion: 4},
 		{APIKey: DeleteTopicsKey, MinVersion: 0, MaxVersion: 3},
+		{APIKey: DeleteRecordsKey, MinVersion: 0, MaxVersion: 1},
 	}
 }

@@ -462,3 +462,46 @@ func decodeRecord(r io.Reader) (*Record, error) {
 
 	return record, nil
 }
+
+// SearchByTimestamp searches for the first offset whose timestamp >= the given timestamp
+func (s *Segment) SearchByTimestamp(timestamp int64) (int64, int64, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Use time index to find approximate position
+	// For simplicity, we'll do a linear search through the segment
+	// In a production system, you'd use the time index for binary search
+
+	// Get segment size
+	stat, err := s.dataFile.Stat()
+	if err != nil {
+		return 0, 0, err
+	}
+
+	if stat.Size() == 0 {
+		return 0, 0, fmt.Errorf("empty segment")
+	}
+
+	// Read through records to find the first one >= timestamp
+	_, err = s.dataFile.Seek(0, io.SeekStart)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	for {
+		record, err := decodeRecord(s.dataFile)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return 0, 0, err
+		}
+
+		if record.Timestamp >= timestamp {
+			return record.Offset, record.Timestamp, nil
+		}
+	}
+
+	// Not found in this segment
+	return 0, 0, fmt.Errorf("timestamp not found in segment")
+}

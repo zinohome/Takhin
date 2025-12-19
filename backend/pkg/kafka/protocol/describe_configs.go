@@ -3,7 +3,7 @@
 package protocol
 
 import (
-"io"
+	"io"
 )
 
 // DescribeConfigsRequest represents a DescribeConfigs request (API Key 32)
@@ -14,16 +14,10 @@ type DescribeConfigsRequest struct {
 
 // DescribeConfigsResource represents a resource to describe
 type DescribeConfigsResource struct {
-	ResourceType int8
+	ResourceType ResourceType
 	ResourceName string
 	ConfigNames  []string
 }
-
-// Resource types
-const (
-ResourceTypeTopic  int8 = 2
-ResourceTypeBroker int8 = 4
-)
 
 // DescribeConfigsResponse represents a DescribeConfigs response
 type DescribeConfigsResponse struct {
@@ -35,7 +29,7 @@ type DescribeConfigsResponse struct {
 type DescribeConfigsResult struct {
 	ErrorCode    ErrorCode
 	ErrorMessage *string
-	ResourceType int8
+	ResourceType ResourceType
 	ResourceName string
 	Configs      []DescribeConfigsEntry
 }
@@ -94,7 +88,7 @@ func DecodeDescribeConfigsRequest(r io.Reader, header *RequestHeader) (*Describe
 		}
 
 		req.Resources[i] = DescribeConfigsResource{
-			ResourceType: resourceType,
+			ResourceType: ResourceType(resourceType),
 			ResourceName: resourceName,
 			ConfigNames:  configNames,
 		}
@@ -127,7 +121,7 @@ func (r *DescribeConfigsResponse) Encode(w io.Writer) error {
 		}
 
 		// Write resource type
-		if err := WriteInt8(w, result.ResourceType); err != nil {
+		if err := WriteInt8(w, int8(result.ResourceType)); err != nil {
 			return err
 		}
 

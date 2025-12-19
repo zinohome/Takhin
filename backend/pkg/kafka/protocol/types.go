@@ -34,8 +34,21 @@ const (
 	ApiVersionsKey        APIKey = 18
 	CreateTopicsKey       APIKey = 19
 	DeleteTopicsKey       APIKey = 20
+	DeleteRecordsKey      APIKey = 21
+	InitProducerIDKey     APIKey = 22
+	AddPartitionsToTxnKey APIKey = 24
+	EndTxnKey             APIKey = 26
 	DescribeConfigsKey    APIKey = 32
 	AlterConfigsKey       APIKey = 33
+	DescribeLogDirsKey    APIKey = 35
+)
+
+// ResourceType represents Kafka resource types
+type ResourceType int8
+
+const (
+	ResourceTypeBroker ResourceType = 4
+	ResourceTypeTopic  ResourceType = 2
 )
 
 // ErrorCode represents a Kafka error code
