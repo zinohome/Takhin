@@ -37,10 +37,14 @@ const (
 	DeleteRecordsKey      APIKey = 21
 	InitProducerIDKey     APIKey = 22
 	AddPartitionsToTxnKey APIKey = 24
+	AddOffsetsToTxnKey    APIKey = 25
 	EndTxnKey             APIKey = 26
+	WriteTxnMarkersKey    APIKey = 27
+	TxnOffsetCommitKey    APIKey = 28
 	DescribeConfigsKey    APIKey = 32
 	AlterConfigsKey       APIKey = 33
 	DescribeLogDirsKey    APIKey = 35
+	SaslAuthenticateKey   APIKey = 36
 )
 
 // ResourceType represents Kafka resource types

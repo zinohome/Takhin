@@ -80,6 +80,10 @@ func (h *Handler) HandleRequest(reqData []byte) ([]byte, error) {
 	switch header.APIKey {
 	case protocol.ApiVersionsKey:
 		response, err = h.handleApiVersions(r, header)
+	case protocol.SaslHandshakeKey:
+		response, err = h.handleSaslHandshake(r, header)
+	case protocol.SaslAuthenticateKey:
+		response, err = h.handleSaslAuthenticate(r, header)
 	case protocol.ProduceKey:
 		response, err = h.handleProduce(r, header)
 	case protocol.FetchKey:
@@ -120,8 +124,14 @@ func (h *Handler) HandleRequest(reqData []byte) ([]byte, error) {
 		response, err = h.handleInitProducerID(r, header)
 	case protocol.AddPartitionsToTxnKey:
 		response, err = h.handleAddPartitionsToTxn(r, header)
+	case protocol.AddOffsetsToTxnKey:
+		response, err = h.handleAddOffsetsToTxn(r, header)
 	case protocol.EndTxnKey:
 		response, err = h.handleEndTxn(r, header)
+	case protocol.WriteTxnMarkersKey:
+		response, err = h.handleWriteTxnMarkers(r, header)
+	case protocol.TxnOffsetCommitKey:
+		response, err = h.handleTxnOffsetCommit(r, header)
 	case protocol.AlterConfigsKey:
 		response, err = h.handleAlterConfigs(r, header)
 	default:
@@ -133,44 +143,6 @@ func (h *Handler) HandleRequest(reqData []byte) ([]byte, error) {
 	}
 
 	return response, nil
-}
-
-// handleApiVersions handles ApiVersions requests
-func (h *Handler) handleApiVersions(r io.Reader, header *protocol.RequestHeader) ([]byte, error) {
-	// Decode request
-	_, err := protocol.DecodeApiVersionsRequest(r, header)
-	if err != nil {
-		return nil, fmt.Errorf("decode api versions request: %w", err)
-	}
-
-	// Create response
-	resp := &protocol.ApiVersionsResponse{
-		ErrorCode:   protocol.None,
-		APIVersions: protocol.GetSupportedAPIVersions(),
-	}
-
-	// Encode response
-	var buf bytes.Buffer
-
-	// Write response header
-	respHeader := &protocol.ResponseHeader{
-		CorrelationID: header.CorrelationID,
-	}
-	if err := respHeader.Encode(&buf); err != nil {
-		return nil, fmt.Errorf("encode response header: %w", err)
-	}
-
-	// Write response body
-	if err := resp.Encode(&buf); err != nil {
-		return nil, fmt.Errorf("encode api versions response: %w", err)
-	}
-
-	h.logger.Debug("api versions response",
-		"correlation_id", header.CorrelationID,
-		"versions_count", len(resp.APIVersions),
-	)
-
-	return buf.Bytes(), nil
 }
 
 // handleMetadata handles Metadata requests
