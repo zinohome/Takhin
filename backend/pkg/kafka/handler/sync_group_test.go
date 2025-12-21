@@ -1,9 +1,6 @@
 // Copyright 2025 Takhin Data, Inc.
 
 package handler
-// Copyright 2025 Takhin Data, Inc.
-
-package handler
 
 import (
 	"bytes"
@@ -18,177 +15,178 @@ import (
 
 func TestHandleSyncGroup_Leader(t *testing.T) {
 	cfg := &config.Config{
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-}	assert.Equal(t, int16(protocol.UnknownMemberID), resp.ErrorCode)	// Should return error	require.NoError(t, err)	err = resp.Decode(respBytes[4:])	resp := &protocol.SyncGroupResponse{}	// Decode response	require.NoError(t, err)	respBytes, err := h.handleSyncGroup(bytes.NewReader(req.Encode()), header)	}		ClientID:      "test-client",		CorrelationID: 1,		APIVersion:    0,		APIKey:        protocol.SyncGroupKey,	header := &protocol.RequestHeader{	}		Assignments:  []protocol.GroupAssignment{},		GenerationID: 1,		MemberID:     "unknown-member",		GroupID:      "test-group",	req := &protocol.SyncGroupRequest{	// Try to sync without joining	h := New(cfg, topicMgr)	topicMgr := topic.NewManager(cfg.Storage.DataDir, cfg.Storage.LogSegmentSize)	}		Kafka:   config.KafkaConfig{BrokerID: 1},		Storage: config.StorageConfig{DataDir: t.TempDir(), LogSegmentSize: 1024 * 1024},		Server:  config.ServerConfig{Host: "localhost", Port: 9092},	cfg := &config.Config{func TestHandleSyncGroup_UnknownMember(t *testing.T) {}	assert.Equal(t, int16(protocol.None), resp.ErrorCode)	// Should succeed with empty assignment	require.NoError(t, err)	err = resp.Decode(respBytes[4:])	resp := &protocol.SyncGroupResponse{}	// Decode response	require.NoError(t, err)	respBytes, err := h.handleSyncGroup(bytes.NewReader(req.Encode()), header)	}		ClientID:      "test-client",		CorrelationID: 2,		APIVersion:    0,		APIKey:        protocol.SyncGroupKey,	header := &protocol.RequestHeader{	}		Assignments:  []protocol.GroupAssignment{}, // Follower sends empty		GenerationID: joinResp.GenerationID,		MemberID:     joinResp.MemberID,		GroupID:      "test-group",	req := &protocol.SyncGroupRequest{	// Sync as follower (empty assignments)	require.NoError(t, err)	err = joinResp.Decode(joinRespBytes[4:])	joinResp := &protocol.JoinGroupResponse{}	require.NoError(t, err)	joinRespBytes, err := h.handleJoinGroup(bytes.NewReader(joinReq.Encode()), joinHeader)	}		ClientID:      "test-client",		CorrelationID: 1,		APIVersion:    0,		APIKey:        protocol.JoinGroupKey,	joinHeader := &protocol.RequestHeader{	}		},			},				Metadata: []byte("metadata"),				Name:     "range",			{		Protocols: []protocol.GroupProtocol{		ProtocolType:     "consumer",		MemberID:         "",		RebalanceTimeout: 30000,		SessionTimeout:   10000,		GroupID:          "test-group",	joinReq := &protocol.JoinGroupRequest{	// First join group	h := New(cfg, topicMgr)	topicMgr := topic.NewManager(cfg.Storage.DataDir, cfg.Storage.LogSegmentSize)	}		Kafka:   config.KafkaConfig{BrokerID: 1},		Storage: config.StorageConfig{DataDir: t.TempDir(), LogSegmentSize: 1024 * 1024},		Server:  config.ServerConfig{Host: "localhost", Port: 9092},	cfg := &config.Config{func TestHandleSyncGroup_Follower(t *testing.T) {}	assert.Equal(t, []byte("assignment-data"), resp.Assignment)	assert.Equal(t, int16(protocol.None), resp.ErrorCode)	// Verify response	require.NoError(t, err)	err = resp.Decode(respBytes[4:])	resp := &protocol.SyncGroupResponse{}	// Decode response (skip correlation ID - first 4 bytes)	require.NotNil(t, respBytes)	require.NoError(t, err)	respBytes, err := h.handleSyncGroup(bytes.NewReader(req.Encode()), header)	}		ClientID:      "test-client",		CorrelationID: 2,		APIVersion:    0,		APIKey:        protocol.SyncGroupKey,	header := &protocol.RequestHeader{	}		},			},				Assignment: []byte("assignment-data"),				MemberID:   joinResp.MemberID,			{		Assignments: []protocol.GroupAssignment{		GenerationID: joinResp.GenerationID,		MemberID:     joinResp.MemberID,		GroupID:      "test-group",	req := &protocol.SyncGroupRequest{	// Now sync group (as leader with assignments)	require.NoError(t, err)	err = joinResp.Decode(joinRespBytes[4:])	joinResp := &protocol.JoinGroupResponse{}	require.NoError(t, err)	joinRespBytes, err := h.handleJoinGroup(bytes.NewReader(joinReq.Encode()), joinHeader)	}		ClientID:      "test-client",		CorrelationID: 1,		APIVersion:    0,		APIKey:        protocol.JoinGroupKey,	joinHeader := &protocol.RequestHeader{	}		},			},				Metadata: []byte("metadata"),				Name:     "range",			{		Protocols: []protocol.GroupProtocol{		ProtocolType:     "consumer",		MemberID:         "",		RebalanceTimeout: 30000,		SessionTimeout:   10000,		GroupID:          "test-group",	joinReq := &protocol.JoinGroupRequest{	// First join group	h := New(cfg, topicMgr)	topicMgr := topic.NewManager(cfg.Storage.DataDir, cfg.Storage.LogSegmentSize)	}		Server:  config.ServerConfig{Host: "localhost", Port: 9092},
+		Server:  config.ServerConfig{Host: "localhost", Port: 9092},
 		Storage: config.StorageConfig{DataDir: t.TempDir(), LogSegmentSize: 1024 * 1024},
 		Kafka:   config.KafkaConfig{BrokerID: 1},
+	}
+
+	topicMgr := topic.NewManager(cfg.Storage.DataDir, cfg.Storage.LogSegmentSize)
+	h := New(cfg, topicMgr)
+
+	// First join group
+	joinReq := &protocol.JoinGroupRequest{
+		GroupID:          "test-group",
+		SessionTimeout:   10000,
+		RebalanceTimeout: 30000,
+		MemberID:         "",
+		ProtocolType:     "consumer",
+		Protocols: []protocol.GroupProtocol{
+			{
+				Name:     "range",
+				Metadata: []byte("metadata"),
+			},
+		},
+	}
+
+	joinHeader := &protocol.RequestHeader{
+		APIKey:        protocol.JoinGroupKey,
+		APIVersion:    0,
+		CorrelationID: 1,
+		ClientID:      "test-client",
+	}
+
+	joinRespBytes, err := h.handleJoinGroup(bytes.NewReader(joinReq.Encode()), joinHeader)
+	require.NoError(t, err)
+
+	joinResp := &protocol.JoinGroupResponse{}
+	err = joinResp.Decode(joinRespBytes[4:])
+	require.NoError(t, err)
+
+	// Now sync group (as leader with assignments)
+	// Note: Generation increments due to PrepareRebalance() in handleJoinGroup
+	req := &protocol.SyncGroupRequest{
+		GroupID:      "test-group",
+		MemberID:     joinResp.MemberID,
+		GenerationID: joinResp.GenerationID + 1, // Generation was incremented by PrepareRebalance
+		Assignments: []protocol.SyncGroupAssignment{
+			{
+				MemberID:   joinResp.MemberID,
+				Assignment: []byte("assignment-data"),
+			},
+		},
+	}
+
+	header := &protocol.RequestHeader{
+		APIKey:        protocol.SyncGroupKey,
+		APIVersion:    0,
+		CorrelationID: 2,
+		ClientID:      "test-client",
+	}
+
+	respBytes, err := h.handleSyncGroup(bytes.NewReader(req.Encode()), header)
+	require.NoError(t, err)
+	require.NotNil(t, respBytes)
+
+	// Decode response (skip correlation ID - first 4 bytes)
+	resp := &protocol.SyncGroupResponse{}
+	err = resp.Decode(respBytes[4:])
+	require.NoError(t, err)
+
+	// Verify response
+	assert.Equal(t, int16(protocol.None), resp.ErrorCode)
+	assert.Equal(t, []byte("assignment-data"), resp.Assignment)
+}
+
+func TestHandleSyncGroup_Follower(t *testing.T) {
+	cfg := &config.Config{
+		Server:  config.ServerConfig{Host: "localhost", Port: 9092},
+		Storage: config.StorageConfig{DataDir: t.TempDir(), LogSegmentSize: 1024 * 1024},
+		Kafka:   config.KafkaConfig{BrokerID: 1},
+	}
+
+	topicMgr := topic.NewManager(cfg.Storage.DataDir, cfg.Storage.LogSegmentSize)
+	h := New(cfg, topicMgr)
+
+	// First join group
+	joinReq := &protocol.JoinGroupRequest{
+		GroupID:          "test-group",
+		SessionTimeout:   10000,
+		RebalanceTimeout: 30000,
+		MemberID:         "",
+		ProtocolType:     "consumer",
+		Protocols: []protocol.GroupProtocol{
+			{
+				Name:     "range",
+				Metadata: []byte("metadata"),
+			},
+		},
+	}
+
+	joinHeader := &protocol.RequestHeader{
+		APIKey:        protocol.JoinGroupKey,
+		APIVersion:    0,
+		CorrelationID: 1,
+		ClientID:      "test-client",
+	}
+
+	joinRespBytes, err := h.handleJoinGroup(bytes.NewReader(joinReq.Encode()), joinHeader)
+	require.NoError(t, err)
+
+	joinResp := &protocol.JoinGroupResponse{}
+	err = joinResp.Decode(joinRespBytes[4:])
+	require.NoError(t, err)
+
+	// Sync as follower (empty assignments)
+	// Note: Generation increments due to PrepareRebalance() in handleJoinGroup
+	req := &protocol.SyncGroupRequest{
+		GroupID:      "test-group",
+		MemberID:     joinResp.MemberID,
+		GenerationID: joinResp.GenerationID + 1,        // Generation was incremented by PrepareRebalance
+		Assignments:  []protocol.SyncGroupAssignment{}, // Follower sends empty
+	}
+
+	header := &protocol.RequestHeader{
+		APIKey:        protocol.SyncGroupKey,
+		APIVersion:    0,
+		CorrelationID: 2,
+		ClientID:      "test-client",
+	}
+
+	respBytes, err := h.handleSyncGroup(bytes.NewReader(req.Encode()), header)
+	require.NoError(t, err)
+
+	// Decode response
+	resp := &protocol.SyncGroupResponse{}
+	err = resp.Decode(respBytes[4:])
+	require.NoError(t, err)
+
+	// Should succeed with empty assignment
+	assert.Equal(t, int16(protocol.None), resp.ErrorCode)
+}
+
+func TestHandleSyncGroup_UnknownMember(t *testing.T) {
+	cfg := &config.Config{
+		Server:  config.ServerConfig{Host: "localhost", Port: 9092},
+		Storage: config.StorageConfig{DataDir: t.TempDir(), LogSegmentSize: 1024 * 1024},
+		Kafka:   config.KafkaConfig{BrokerID: 1},
+	}
+
+	topicMgr := topic.NewManager(cfg.Storage.DataDir, cfg.Storage.LogSegmentSize)
+	h := New(cfg, topicMgr)
+
+	// Try to sync without joining
+	req := &protocol.SyncGroupRequest{
+		GroupID:      "test-group",
+		MemberID:     "unknown-member",
+		GenerationID: 1,
+		Assignments:  []protocol.SyncGroupAssignment{},
+	}
+
+	header := &protocol.RequestHeader{
+		APIKey:        protocol.SyncGroupKey,
+		APIVersion:    0,
+		CorrelationID: 1,
+		ClientID:      "test-client",
+	}
+
+	respBytes, err := h.handleSyncGroup(bytes.NewReader(req.Encode()), header)
+	require.NoError(t, err)
+
+	// Decode response
+	resp := &protocol.SyncGroupResponse{}
+	err = resp.Decode(respBytes[4:])
+	require.NoError(t, err)
+
+	// Should return error
+	assert.Equal(t, int16(protocol.IllegalGeneration), resp.ErrorCode)
+}

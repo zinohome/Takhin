@@ -216,3 +216,52 @@ func (l *Log) SearchByTimestamp(timestamp int64) (int64, int64, error) {
 	// If not found, return the next available offset (HWM)
 	return l.HighWaterMark(), timestamp, nil
 }
+
+// Size returns the total size in bytes of all segments
+func (l *Log) Size() (int64, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+
+	totalSize := int64(0)
+	for _, segment := range l.segments {
+		size, err := segment.Size()
+		if err != nil {
+			return 0, fmt.Errorf("get segment size: %w", err)
+		}
+		totalSize += size
+	}
+
+	return totalSize, nil
+}
+
+// NumSegments returns the number of segments in this log
+func (l *Log) NumSegments() int {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return len(l.segments)
+}
+
+// GetSegments returns information about all segments
+func (l *Log) GetSegments() []SegmentInfo {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+
+	infos := make([]SegmentInfo, len(l.segments))
+	for i, segment := range l.segments {
+		size, _ := segment.Size()
+		infos[i] = SegmentInfo{
+			BaseOffset: segment.BaseOffset(),
+			NextOffset: segment.NextOffset(),
+			Size:       size,
+		}
+	}
+
+	return infos
+}
+
+// SegmentInfo contains information about a segment
+type SegmentInfo struct {
+	BaseOffset int64
+	NextOffset int64
+	Size       int64
+}

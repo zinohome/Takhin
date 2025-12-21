@@ -365,10 +365,17 @@ func (s *Segment) findPosition(offset int64) (int64, error) {
 		return 0, err
 	}
 
+	if indexSize == 0 {
+		// No index entries, start from beginning
+		return 0, nil
+	}
+
 	entrySize := int64(16)
 	numEntries := indexSize / entrySize
 
 	left, right := int64(0), numEntries-1
+	var lastValidPosition int64 = 0
+
 	for left <= right {
 		mid := (left + right) / 2
 		pos := mid * entrySize
@@ -377,26 +384,26 @@ func (s *Segment) findPosition(offset int64) (int64, error) {
 			return 0, err
 		}
 
-		buf := make([]byte, 8)
+		buf := make([]byte, 16)
 		if _, err := io.ReadFull(s.indexFile, buf); err != nil {
 			return 0, err
 		}
 
-		midOffset := int64(binary.BigEndian.Uint64(buf))
+		midOffset := int64(binary.BigEndian.Uint64(buf[0:8]))
+		position := int64(binary.BigEndian.Uint64(buf[8:16]))
 
 		if midOffset == offset {
-			if _, err := io.ReadFull(s.indexFile, buf); err != nil {
-				return 0, err
-			}
-			return int64(binary.BigEndian.Uint64(buf)), nil
+			return position, nil
 		} else if midOffset < offset {
+			lastValidPosition = position
 			left = mid + 1
 		} else {
 			right = mid - 1
 		}
 	}
 
-	return 0, fmt.Errorf("offset not found: %d", offset)
+	// Return the last valid position we found (closest to but less than target)
+	return lastValidPosition, nil
 }
 
 func (s *Segment) scanSegment() error {
@@ -504,4 +511,68 @@ func (s *Segment) SearchByTimestamp(timestamp int64) (int64, int64, error) {
 
 	// Not found in this segment
 	return 0, 0, fmt.Errorf("timestamp not found in segment")
+}
+
+// Size returns the size of the segment's data file in bytes
+func (s *Segment) Size() (int64, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	stat, err := s.dataFile.Stat()
+	if err != nil {
+		return 0, fmt.Errorf("stat data file: %w", err)
+	}
+
+	return stat.Size(), nil
+}
+
+// TruncateTo truncates the segment to the given offset
+// This removes all records with offset >= the given offset
+func (s *Segment) TruncateTo(offset int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if offset <= s.baseOffset {
+		// Truncate everything, reset to base offset
+		if err := s.dataFile.Truncate(0); err != nil {
+			return fmt.Errorf("truncate data file: %w", err)
+		}
+		if err := s.indexFile.Truncate(0); err != nil {
+			return fmt.Errorf("truncate index file: %w", err)
+		}
+		if err := s.timeIndexFile.Truncate(0); err != nil {
+			return fmt.Errorf("truncate time index file: %w", err)
+		}
+		s.nextOffset = s.baseOffset
+		return nil
+	}
+
+	if offset >= s.nextOffset {
+		// Nothing to truncate
+		return nil
+	}
+
+	// Find the position of the offset in the data file
+	position, err := s.findPosition(offset)
+	if err != nil {
+		return fmt.Errorf("find position: %w", err)
+	}
+
+	// Truncate files
+	if err := s.dataFile.Truncate(position); err != nil {
+		return fmt.Errorf("truncate data file: %w", err)
+	}
+
+	// Rebuild indexes (simplified - in production you'd do a more efficient truncation)
+	if err := s.indexFile.Truncate(0); err != nil {
+		return fmt.Errorf("truncate index file: %w", err)
+	}
+	if err := s.timeIndexFile.Truncate(0); err != nil {
+		return fmt.Errorf("truncate time index file: %w", err)
+	}
+
+	// Update next offset
+	s.nextOffset = offset
+
+	return nil
 }

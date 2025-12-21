@@ -97,9 +97,12 @@ func (h *Handler) handleDescribeLogDirs(r io.Reader, header *protocol.RequestHea
 				continue
 			}
 
-			// Get partition size (TODO: implement Size() method)
-			// For now, use 0 as placeholder
-			size := int64(0)
+			// Get partition size
+			size, err := topic.PartitionSize(partitionID)
+			if err != nil {
+				h.logger.Error("get partition size", "error", err, "topic", topicName, "partition", partitionID)
+				size = 0
+			}
 
 			partitionResult := protocol.DescribeLogDirsPartitionResult{
 				PartitionIndex: partitionID,

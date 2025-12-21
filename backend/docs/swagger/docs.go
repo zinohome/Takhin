@@ -45,7 +45,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/console.ConsumerGroupSummary"
+                                "$ref": "#/definitions/pkg_console.ConsumerGroupSummary"
                             }
                         }
                     }
@@ -80,7 +80,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/console.ConsumerGroupDetail"
+                            "$ref": "#/definitions/pkg_console.ConsumerGroupDetail"
                         }
                     },
                     "404": {
@@ -97,7 +97,7 @@ const docTemplate = `{
         },
         "/health": {
             "get": {
-                "description": "Check if the Console API server is healthy",
+                "description": "Check comprehensive health status of all components",
                 "produces": [
                     "application/json"
                 ],
@@ -109,9 +109,61 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
+                            "$ref": "#/definitions/pkg_console.HealthCheck"
+                        }
+                    }
+                }
+            }
+        },
+        "/health/live": {
+            "get": {
+                "description": "Check if the service is alive (Kubernetes liveness probe)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Liveness check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
                             "type": "object",
                             "additionalProperties": {
-                                "type": "string"
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/health/ready": {
+            "get": {
+                "description": "Check if the service is ready to accept traffic (Kubernetes readiness probe)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Readiness check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
                             }
                         }
                     }
@@ -139,7 +191,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/console.TopicSummary"
+                                "$ref": "#/definitions/pkg_console.TopicSummary"
                             }
                         }
                     }
@@ -169,7 +221,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/console.CreateTopicRequest"
+                            "$ref": "#/definitions/pkg_console.CreateTopicRequest"
                         }
                     }
                 ],
@@ -232,7 +284,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/console.TopicDetail"
+                            "$ref": "#/definitions/pkg_console.TopicDetail"
                         }
                     },
                     "404": {
@@ -333,7 +385,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/console.Message"
+                                "$ref": "#/definitions/pkg_console.Message"
                             }
                         }
                     },
@@ -388,7 +440,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/console.ProduceMessageRequest"
+                            "$ref": "#/definitions/pkg_console.ProduceMessageRequest"
                         }
                     }
                 ],
@@ -432,7 +484,22 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "console.ConsumerGroupDetail": {
+        "pkg_console.ComponentHealth": {
+            "type": "object",
+            "properties": {
+                "details": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/pkg_console.HealthStatus"
+                }
+            }
+        },
+        "pkg_console.ConsumerGroupDetail": {
             "type": "object",
             "properties": {
                 "groupId": {
@@ -441,13 +508,13 @@ const docTemplate = `{
                 "members": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/console.ConsumerGroupMember"
+                        "$ref": "#/definitions/pkg_console.ConsumerGroupMember"
                     }
                 },
                 "offsetCommits": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/console.ConsumerGroupOffsetCommit"
+                        "$ref": "#/definitions/pkg_console.ConsumerGroupOffsetCommit"
                     }
                 },
                 "protocol": {
@@ -461,7 +528,7 @@ const docTemplate = `{
                 }
             }
         },
-        "console.ConsumerGroupMember": {
+        "pkg_console.ConsumerGroupMember": {
             "type": "object",
             "properties": {
                 "clientHost": {
@@ -481,7 +548,7 @@ const docTemplate = `{
                 }
             }
         },
-        "console.ConsumerGroupOffsetCommit": {
+        "pkg_console.ConsumerGroupOffsetCommit": {
             "type": "object",
             "properties": {
                 "metadata": {
@@ -498,7 +565,7 @@ const docTemplate = `{
                 }
             }
         },
-        "console.ConsumerGroupSummary": {
+        "pkg_console.ConsumerGroupSummary": {
             "type": "object",
             "properties": {
                 "groupId": {
@@ -512,7 +579,7 @@ const docTemplate = `{
                 }
             }
         },
-        "console.CreateTopicRequest": {
+        "pkg_console.CreateTopicRequest": {
             "type": "object",
             "properties": {
                 "name": {
@@ -523,7 +590,46 @@ const docTemplate = `{
                 }
             }
         },
-        "console.Message": {
+        "pkg_console.HealthCheck": {
+            "type": "object",
+            "properties": {
+                "components": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/pkg_console.ComponentHealth"
+                    }
+                },
+                "status": {
+                    "$ref": "#/definitions/pkg_console.HealthStatus"
+                },
+                "system_info": {
+                    "$ref": "#/definitions/pkg_console.SystemInfo"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "uptime": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "pkg_console.HealthStatus": {
+            "type": "string",
+            "enum": [
+                "healthy",
+                "degraded",
+                "unhealthy"
+            ],
+            "x-enum-varnames": [
+                "HealthStatusHealthy",
+                "HealthStatusDegraded",
+                "HealthStatusUnhealthy"
+            ]
+        },
+        "pkg_console.Message": {
             "type": "object",
             "properties": {
                 "key": {
@@ -543,7 +649,7 @@ const docTemplate = `{
                 }
             }
         },
-        "console.PartitionInfo": {
+        "pkg_console.PartitionInfo": {
             "type": "object",
             "properties": {
                 "highWaterMark": {
@@ -554,7 +660,7 @@ const docTemplate = `{
                 }
             }
         },
-        "console.ProduceMessageRequest": {
+        "pkg_console.ProduceMessageRequest": {
             "type": "object",
             "properties": {
                 "key": {
@@ -568,7 +674,24 @@ const docTemplate = `{
                 }
             }
         },
-        "console.TopicDetail": {
+        "pkg_console.SystemInfo": {
+            "type": "object",
+            "properties": {
+                "go_version": {
+                    "type": "string"
+                },
+                "memory_mb": {
+                    "type": "number"
+                },
+                "num_cpu": {
+                    "type": "integer"
+                },
+                "num_goroutines": {
+                    "type": "integer"
+                }
+            }
+        },
+        "pkg_console.TopicDetail": {
             "type": "object",
             "properties": {
                 "name": {
@@ -580,12 +703,12 @@ const docTemplate = `{
                 "partitions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/console.PartitionInfo"
+                        "$ref": "#/definitions/pkg_console.PartitionInfo"
                     }
                 }
             }
         },
-        "console.TopicSummary": {
+        "pkg_console.TopicSummary": {
             "type": "object",
             "properties": {
                 "name": {
@@ -597,7 +720,7 @@ const docTemplate = `{
                 "partitions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/console.PartitionInfo"
+                        "$ref": "#/definitions/pkg_console.PartitionInfo"
                     }
                 }
             }

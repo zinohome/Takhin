@@ -20,23 +20,25 @@ import (
 
 // Server represents the Console HTTP API server
 type Server struct {
-	router       *chi.Mux
-	logger       *logger.Logger
-	topicManager *topic.Manager
-	coordinator  *coordinator.Coordinator
-	authConfig   AuthConfig
-	addr         string
+	router        *chi.Mux
+	logger        *logger.Logger
+	topicManager  *topic.Manager
+	coordinator   *coordinator.Coordinator
+	authConfig    AuthConfig
+	addr          string
+	healthChecker *HealthChecker
 }
 
 // NewServer creates a new Console API server
 func NewServer(addr string, topicManager *topic.Manager, coord *coordinator.Coordinator, authConfig AuthConfig) *Server {
 	s := &Server{
-		router:       chi.NewRouter(),
-		logger:       logger.Default().WithComponent("console-api"),
-		topicManager: topicManager,
-		coordinator:  coord,
-		authConfig:   authConfig,
-		addr:         addr,
+		router:        chi.NewRouter(),
+		logger:        logger.Default().WithComponent("console-api"),
+		topicManager:  topicManager,
+		coordinator:   coord,
+		authConfig:    authConfig,
+		addr:          addr,
+		healthChecker: NewHealthChecker("1.0.0", topicManager, coord),
 	}
 
 	s.setupMiddleware()
@@ -74,7 +76,10 @@ func (s *Server) setupRoutes() {
 		httpSwagger.URL("/swagger/doc.json"),
 	))
 
+	// Health check endpoints (no auth required)
 	s.router.Get("/api/health", s.handleHealth)
+	s.router.Get("/api/health/ready", s.handleReadiness)
+	s.router.Get("/api/health/live", s.handleLiveness)
 
 	// Topic routes
 	s.router.Route("/api/topics", func(r chi.Router) {
@@ -105,14 +110,56 @@ func (s *Server) Start() error {
 
 // handleHealth godoc
 // @Summary      Health check
-// @Description  Check if the Console API server is healthy
+// @Description  Check comprehensive health status of all components
 // @Tags         Health
 // @Produce      json
-// @Success      200  {object}  map[string]string
+// @Success      200  {object}  HealthCheck
 // @Router       /health [get]
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	s.respondJSON(w, http.StatusOK, map[string]string{
-		"status": "healthy",
+	health := s.healthChecker.Check()
+	
+	statusCode := http.StatusOK
+	if health.Status == HealthStatusDegraded {
+		statusCode = http.StatusOK // 200 for degraded but functional
+	} else if health.Status == HealthStatusUnhealthy {
+		statusCode = http.StatusServiceUnavailable
+	}
+	
+	s.respondJSON(w, statusCode, health)
+}
+
+// handleReadiness godoc
+// @Summary      Readiness check
+// @Description  Check if the service is ready to accept traffic (Kubernetes readiness probe)
+// @Tags         Health
+// @Produce      json
+// @Success      200  {object}  map[string]bool
+// @Failure      503  {object}  map[string]bool
+// @Router       /health/ready [get]
+func (s *Server) handleReadiness(w http.ResponseWriter, r *http.Request) {
+	ready := s.healthChecker.ReadinessCheck()
+	
+	statusCode := http.StatusOK
+	if !ready {
+		statusCode = http.StatusServiceUnavailable
+	}
+	
+	s.respondJSON(w, statusCode, map[string]bool{
+		"ready": ready,
+	})
+}
+
+// handleLiveness godoc
+// @Summary      Liveness check
+// @Description  Check if the service is alive (Kubernetes liveness probe)
+// @Tags         Health
+// @Produce      json
+// @Success      200  {object}  map[string]bool
+// @Router       /health/live [get]
+func (s *Server) handleLiveness(w http.ResponseWriter, r *http.Request) {
+	alive := s.healthChecker.LivenessCheck()
+	s.respondJSON(w, http.StatusOK, map[string]bool{
+		"alive": alive,
 	})
 }
 

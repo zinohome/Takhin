@@ -1,9 +1,6 @@
 // Copyright 2025 Takhin Data, Inc.
 
 package handler
-// Copyright 2025 Takhin Data, Inc.
-
-package handler
 
 import (
 	"bytes"
@@ -16,182 +13,69 @@ import (
 	"github.com/takhin-data/takhin/pkg/storage/topic"
 )
 
-func TestHandleLeaveGroup_Success(t *testing.T) {
+func TestHandleLeaveGroup(t *testing.T) {
 	cfg := &config.Config{
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-}	assert.NotEqual(t, firstMemberID, rejoinResp.MemberID)	assert.NotEmpty(t, rejoinResp.MemberID)	assert.Equal(t, int16(protocol.None), rejoinResp.ErrorCode)	// Should succeed with new member ID	require.NoError(t, err)	err = rejoinResp.Decode(rejoinRespBytes[4:])	rejoinResp := &protocol.JoinGroupResponse{}	require.NoError(t, err)	rejoinRespBytes, err := h.handleJoinGroup(bytes.NewReader(joinReq.Encode()), joinHeader)	joinHeader.CorrelationID = 3	joinReq.MemberID = "" // Rejoin as new member	// Rejoin group (should get new member ID)	assert.Equal(t, int16(protocol.None), leaveResp.ErrorCode)	require.NoError(t, err)	err = leaveResp.Decode(leaveRespBytes[4:])	leaveResp := &protocol.LeaveGroupResponse{}	require.NoError(t, err)	leaveRespBytes, err := h.handleLeaveGroup(bytes.NewReader(leaveReq.Encode()), leaveHeader)	}		ClientID:      "test-client",		CorrelationID: 2,		APIVersion:    0,		APIKey:        protocol.LeaveGroupKey,	leaveHeader := &protocol.RequestHeader{	}		MemberID: firstMemberID,		GroupID:  "test-group",	leaveReq := &protocol.LeaveGroupRequest{	// Leave group	firstMemberID := joinResp.MemberID	require.NoError(t, err)	err = joinResp.Decode(joinRespBytes[4:])	joinResp := &protocol.JoinGroupResponse{}	require.NoError(t, err)	joinRespBytes, err := h.handleJoinGroup(bytes.NewReader(joinReq.Encode()), joinHeader)	}		ClientID:      "test-client",		CorrelationID: 1,		APIVersion:    0,		APIKey:        protocol.JoinGroupKey,	joinHeader := &protocol.RequestHeader{	}		},			},				Metadata: []byte("metadata"),				Name:     "range",			{		Protocols: []protocol.GroupProtocol{		ProtocolType:     "consumer",		MemberID:         "",		RebalanceTimeout: 30000,		SessionTimeout:   10000,		GroupID:          "test-group",	joinReq := &protocol.JoinGroupRequest{	// Join group	h := New(cfg, topicMgr)	topicMgr := topic.NewManager(cfg.Storage.DataDir, cfg.Storage.LogSegmentSize)	}		Kafka:   config.KafkaConfig{BrokerID: 1},		Storage: config.StorageConfig{DataDir: t.TempDir(), LogSegmentSize: 1024 * 1024},		Server:  config.ServerConfig{Host: "localhost", Port: 9092},	cfg := &config.Config{func TestHandleLeaveGroup_Rejoin(t *testing.T) {}	assert.Equal(t, int16(protocol.UnknownMemberID), resp.ErrorCode)	// Should return error for unknown member	require.NoError(t, err)	err = resp.Decode(respBytes[4:])	resp := &protocol.LeaveGroupResponse{}	// Decode response	require.NoError(t, err)	respBytes, err := h.handleLeaveGroup(bytes.NewReader(req.Encode()), header)	}		ClientID:      "test-client",		CorrelationID: 1,		APIVersion:    0,		APIKey:        protocol.LeaveGroupKey,	header := &protocol.RequestHeader{	}		MemberID: "unknown-member",		GroupID:  "test-group",	req := &protocol.LeaveGroupRequest{	// Try to leave without joining	h := New(cfg, topicMgr)	topicMgr := topic.NewManager(cfg.Storage.DataDir, cfg.Storage.LogSegmentSize)	}		Kafka:   config.KafkaConfig{BrokerID: 1},		Storage: config.StorageConfig{DataDir: t.TempDir(), LogSegmentSize: 1024 * 1024},		Server:  config.ServerConfig{Host: "localhost", Port: 9092},	cfg := &config.Config{func TestHandleLeaveGroup_UnknownMember(t *testing.T) {}	assert.Equal(t, int16(protocol.None), resp.ErrorCode)	// Verify response	require.NoError(t, err)	err = resp.Decode(respBytes[4:])	resp := &protocol.LeaveGroupResponse{}	// Decode response (skip correlation ID - first 4 bytes)	require.NotNil(t, respBytes)	require.NoError(t, err)	respBytes, err := h.handleLeaveGroup(bytes.NewReader(req.Encode()), header)	}		ClientID:      "test-client",		CorrelationID: 2,		APIVersion:    0,		APIKey:        protocol.LeaveGroupKey,	header := &protocol.RequestHeader{	}		MemberID: joinResp.MemberID,		GroupID:  "test-group",	req := &protocol.LeaveGroupRequest{	// Now leave group	require.NoError(t, err)	err = joinResp.Decode(joinRespBytes[4:])	joinResp := &protocol.JoinGroupResponse{}	require.NoError(t, err)	joinRespBytes, err := h.handleJoinGroup(bytes.NewReader(joinReq.Encode()), joinHeader)	}		ClientID:      "test-client",		CorrelationID: 1,		APIVersion:    0,		APIKey:        protocol.JoinGroupKey,	joinHeader := &protocol.RequestHeader{	}		},			},				Metadata: []byte("metadata"),				Name:     "range",			{		Protocols: []protocol.GroupProtocol{		ProtocolType:     "consumer",		MemberID:         "",		RebalanceTimeout: 30000,		SessionTimeout:   10000,		GroupID:          "test-group",	joinReq := &protocol.JoinGroupRequest{	// First join group	h := New(cfg, topicMgr)	topicMgr := topic.NewManager(cfg.Storage.DataDir, cfg.Storage.LogSegmentSize)	}		Server:  config.ServerConfig{Host: "localhost", Port: 9092},
+		Server:  config.ServerConfig{Host: "localhost", Port: 9092},
 		Storage: config.StorageConfig{DataDir: t.TempDir(), LogSegmentSize: 1024 * 1024},
 		Kafka:   config.KafkaConfig{BrokerID: 1},
+	}
+
+	topicMgr := topic.NewManager(cfg.Storage.DataDir, cfg.Storage.LogSegmentSize)
+	h := New(cfg, topicMgr)
+
+	// First join a group
+	joinReq := &protocol.JoinGroupRequest{
+		GroupID:          "test-group",
+		SessionTimeout:   10000,
+		RebalanceTimeout: 30000,
+		MemberID:         "",
+		ProtocolType:     "consumer",
+		Protocols: []protocol.GroupProtocol{
+			{
+				Name:     "range",
+				Metadata: []byte("metadata"),
+			},
+		},
+	}
+
+	joinHeader := &protocol.RequestHeader{
+		APIKey:        protocol.JoinGroupKey,
+		APIVersion:    0,
+		CorrelationID: 1,
+		ClientID:      "test-client",
+	}
+
+	joinRespBytes, err := h.handleJoinGroup(bytes.NewReader(joinReq.Encode()), joinHeader)
+	require.NoError(t, err)
+
+	joinResp := &protocol.JoinGroupResponse{}
+	err = joinResp.Decode(joinRespBytes[4:])
+	require.NoError(t, err)
+
+	memberID := joinResp.MemberID
+
+	// Now leave the group
+	leaveReq := &protocol.LeaveGroupRequest{
+		GroupID:  "test-group",
+		MemberID: memberID,
+	}
+
+	header := &protocol.RequestHeader{
+		APIKey:        protocol.LeaveGroupKey,
+		APIVersion:    0,
+		CorrelationID: 2,
+		ClientID:      "test-client",
+	}
+
+	respBytes, err := h.handleLeaveGroup(bytes.NewReader(leaveReq.Encode()), header)
+	require.NoError(t, err)
+	require.NotNil(t, respBytes)
+
+	// Decode response
+	resp := &protocol.LeaveGroupResponse{}
+	err = resp.Decode(respBytes[4:])
+	require.NoError(t, err)
+
+	// Verify response
+	assert.Equal(t, int16(protocol.None), resp.ErrorCode)
+}

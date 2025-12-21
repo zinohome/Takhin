@@ -146,6 +146,43 @@ func (t *Topic) HighWaterMark(partition int32) (int64, error) {
 	return log.HighWaterMark(), nil
 }
 
+// Size returns the total size in bytes of all partitions in this topic
+func (t *Topic) Size() (int64, error) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	totalSize := int64(0)
+	for _, logInstance := range t.Partitions {
+		size, err := logInstance.Size()
+		if err != nil {
+			return 0, fmt.Errorf("get partition size: %w", err)
+		}
+		totalSize += size
+	}
+
+	return totalSize, nil
+}
+
+// PartitionSize returns the size in bytes of a specific partition
+func (t *Topic) PartitionSize(partition int32) (int64, error) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	logInstance, exists := t.Partitions[partition]
+	if !exists {
+		return 0, fmt.Errorf("partition not found: %d", partition)
+	}
+
+	return logInstance.Size()
+}
+
+// NumPartitions returns the number of partitions in this topic
+func (t *Topic) NumPartitions() int {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return len(t.Partitions)
+}
+
 // GetEarliestOffset returns the earliest (oldest) available offset for a partition
 func (t *Topic) GetEarliestOffset(partition int32) (int64, error) {
 	t.mu.RLock()

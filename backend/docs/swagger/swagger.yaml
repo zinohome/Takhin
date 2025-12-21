@@ -1,16 +1,26 @@
 basePath: /api
 definitions:
-  console.ConsumerGroupDetail:
+  pkg_console.ComponentHealth:
+    properties:
+      details:
+        additionalProperties: true
+        type: object
+      message:
+        type: string
+      status:
+        $ref: '#/definitions/pkg_console.HealthStatus'
+    type: object
+  pkg_console.ConsumerGroupDetail:
     properties:
       groupId:
         type: string
       members:
         items:
-          $ref: '#/definitions/console.ConsumerGroupMember'
+          $ref: '#/definitions/pkg_console.ConsumerGroupMember'
         type: array
       offsetCommits:
         items:
-          $ref: '#/definitions/console.ConsumerGroupOffsetCommit'
+          $ref: '#/definitions/pkg_console.ConsumerGroupOffsetCommit'
         type: array
       protocol:
         type: string
@@ -19,7 +29,7 @@ definitions:
       state:
         type: string
     type: object
-  console.ConsumerGroupMember:
+  pkg_console.ConsumerGroupMember:
     properties:
       clientHost:
         type: string
@@ -32,7 +42,7 @@ definitions:
           type: integer
         type: array
     type: object
-  console.ConsumerGroupOffsetCommit:
+  pkg_console.ConsumerGroupOffsetCommit:
     properties:
       metadata:
         type: string
@@ -43,7 +53,7 @@ definitions:
       topic:
         type: string
     type: object
-  console.ConsumerGroupSummary:
+  pkg_console.ConsumerGroupSummary:
     properties:
       groupId:
         type: string
@@ -52,14 +62,41 @@ definitions:
       state:
         type: string
     type: object
-  console.CreateTopicRequest:
+  pkg_console.CreateTopicRequest:
     properties:
       name:
         type: string
       partitions:
         type: integer
     type: object
-  console.Message:
+  pkg_console.HealthCheck:
+    properties:
+      components:
+        additionalProperties:
+          $ref: '#/definitions/pkg_console.ComponentHealth'
+        type: object
+      status:
+        $ref: '#/definitions/pkg_console.HealthStatus'
+      system_info:
+        $ref: '#/definitions/pkg_console.SystemInfo'
+      timestamp:
+        type: string
+      uptime:
+        type: string
+      version:
+        type: string
+    type: object
+  pkg_console.HealthStatus:
+    enum:
+    - healthy
+    - degraded
+    - unhealthy
+    type: string
+    x-enum-varnames:
+    - HealthStatusHealthy
+    - HealthStatusDegraded
+    - HealthStatusUnhealthy
+  pkg_console.Message:
     properties:
       key:
         type: string
@@ -72,14 +109,14 @@ definitions:
       value:
         type: string
     type: object
-  console.PartitionInfo:
+  pkg_console.PartitionInfo:
     properties:
       highWaterMark:
         type: integer
       id:
         type: integer
     type: object
-  console.ProduceMessageRequest:
+  pkg_console.ProduceMessageRequest:
     properties:
       key:
         type: string
@@ -88,7 +125,18 @@ definitions:
       value:
         type: string
     type: object
-  console.TopicDetail:
+  pkg_console.SystemInfo:
+    properties:
+      go_version:
+        type: string
+      memory_mb:
+        type: number
+      num_cpu:
+        type: integer
+      num_goroutines:
+        type: integer
+    type: object
+  pkg_console.TopicDetail:
     properties:
       name:
         type: string
@@ -96,10 +144,10 @@ definitions:
         type: integer
       partitions:
         items:
-          $ref: '#/definitions/console.PartitionInfo'
+          $ref: '#/definitions/pkg_console.PartitionInfo'
         type: array
     type: object
-  console.TopicSummary:
+  pkg_console.TopicSummary:
     properties:
       name:
         type: string
@@ -107,7 +155,7 @@ definitions:
         type: integer
       partitions:
         items:
-          $ref: '#/definitions/console.PartitionInfo'
+          $ref: '#/definitions/pkg_console.PartitionInfo'
         type: array
     type: object
 host: localhost:8080
@@ -135,7 +183,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/console.ConsumerGroupSummary'
+              $ref: '#/definitions/pkg_console.ConsumerGroupSummary'
             type: array
       security:
       - ApiKeyAuth: []
@@ -157,7 +205,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/console.ConsumerGroupDetail'
+            $ref: '#/definitions/pkg_console.ConsumerGroupDetail'
         "404":
           description: Not Found
           schema:
@@ -171,7 +219,20 @@ paths:
       - Consumer Groups
   /health:
     get:
-      description: Check if the Console API server is healthy
+      description: Check comprehensive health status of all components
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pkg_console.HealthCheck'
+      summary: Health check
+      tags:
+      - Health
+  /health/live:
+    get:
+      description: Check if the service is alive (Kubernetes liveness probe)
       produces:
       - application/json
       responses:
@@ -179,9 +240,31 @@ paths:
           description: OK
           schema:
             additionalProperties:
-              type: string
+              type: boolean
             type: object
-      summary: Health check
+      summary: Liveness check
+      tags:
+      - Health
+  /health/ready:
+    get:
+      description: Check if the service is ready to accept traffic (Kubernetes readiness
+        probe)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: Readiness check
       tags:
       - Health
   /topics:
@@ -194,7 +277,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/console.TopicSummary'
+              $ref: '#/definitions/pkg_console.TopicSummary'
             type: array
       security:
       - ApiKeyAuth: []
@@ -211,7 +294,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/console.CreateTopicRequest'
+          $ref: '#/definitions/pkg_console.CreateTopicRequest'
       produces:
       - application/json
       responses:
@@ -275,7 +358,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/console.TopicDetail'
+            $ref: '#/definitions/pkg_console.TopicDetail'
         "404":
           description: Not Found
           schema:
@@ -318,7 +401,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/console.Message'
+              $ref: '#/definitions/pkg_console.Message'
             type: array
         "400":
           description: Bad Request
@@ -352,7 +435,7 @@ paths:
         name: message
         required: true
         schema:
-          $ref: '#/definitions/console.ProduceMessageRequest'
+          $ref: '#/definitions/pkg_console.ProduceMessageRequest'
       produces:
       - application/json
       responses:

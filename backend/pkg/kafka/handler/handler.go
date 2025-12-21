@@ -174,8 +174,70 @@ func (h *Handler) handleMetadata(r io.Reader, header *protocol.RequestHeader) ([
 		TopicMetadata: []protocol.TopicMetadata{},
 	}
 
-	// TODO: Add actual topic metadata from storage
-	// For now, return empty topic list
+	// Add actual topic metadata from storage
+	if req.Topics == nil || len(req.Topics) == 0 {
+		// Return all topics
+		allTopics := h.topicManager.ListTopics()
+		for _, topicName := range allTopics {
+			topic, exists := h.topicManager.GetTopic(topicName)
+			if !exists {
+				continue
+			}
+			topicMeta := protocol.TopicMetadata{
+				ErrorCode:         protocol.None,
+				TopicName:         topicName,
+				IsInternal:        false,
+				PartitionMetadata: make([]protocol.PartitionMetadata, 0),
+			}
+			// Add partition metadata
+			for partitionID := range topic.Partitions {
+				partMeta := protocol.PartitionMetadata{
+					ErrorCode:       protocol.None,
+					PartitionID:     partitionID,
+					Leader:          int32(h.config.Kafka.BrokerID),
+					Replicas:        []int32{int32(h.config.Kafka.BrokerID)},
+					ISR:             []int32{int32(h.config.Kafka.BrokerID)},
+					OfflineReplicas: []int32{},
+				}
+				topicMeta.PartitionMetadata = append(topicMeta.PartitionMetadata, partMeta)
+			}
+			resp.TopicMetadata = append(resp.TopicMetadata, topicMeta)
+		}
+	} else {
+		// Return only requested topics
+		for _, topicName := range req.Topics {
+			topic, exists := h.topicManager.GetTopic(topicName)
+			if !exists {
+				topicMeta := protocol.TopicMetadata{
+					ErrorCode:         protocol.UnknownTopicOrPartition,
+					TopicName:         topicName,
+					IsInternal:        false,
+					PartitionMetadata: []protocol.PartitionMetadata{},
+				}
+				resp.TopicMetadata = append(resp.TopicMetadata, topicMeta)
+				continue
+			}
+			topicMeta := protocol.TopicMetadata{
+				ErrorCode:         protocol.None,
+				TopicName:         topicName,
+				IsInternal:        false,
+				PartitionMetadata: make([]protocol.PartitionMetadata, 0),
+			}
+			// Add partition metadata
+			for partitionID := range topic.Partitions {
+				partMeta := protocol.PartitionMetadata{
+					ErrorCode:       protocol.None,
+					PartitionID:     partitionID,
+					Leader:          int32(h.config.Kafka.BrokerID),
+					Replicas:        []int32{int32(h.config.Kafka.BrokerID)},
+					ISR:             []int32{int32(h.config.Kafka.BrokerID)},
+					OfflineReplicas: []int32{},
+				}
+				topicMeta.PartitionMetadata = append(topicMeta.PartitionMetadata, partMeta)
+			}
+			resp.TopicMetadata = append(resp.TopicMetadata, topicMeta)
+		}
+	}
 
 	// Encode response
 	var buf bytes.Buffer
@@ -543,8 +605,30 @@ func (h *Handler) handleOffsetFetch(r io.Reader, header *protocol.RequestHeader)
 	}
 
 	if req.Topics == nil {
-		// Fetch all topics - not implemented yet
-		resp.Topics = []protocol.OffsetFetchResponseTopic{}
+		// Fetch all topics for this group
+		allTopics := h.coordinator.GetGroupTopics(req.GroupID)
+		resp.Topics = make([]protocol.OffsetFetchResponseTopic, 0, len(allTopics))
+		for topicName, partitions := range allTopics {
+			topicResp := protocol.OffsetFetchResponseTopic{
+				Name:       topicName,
+				Partitions: make([]protocol.OffsetFetchResponsePartition, 0, len(partitions)),
+			}
+			for _, partitionIdx := range partitions {
+				offset, exists := h.coordinator.FetchOffset(req.GroupID, topicName, partitionIdx)
+				partResp := protocol.OffsetFetchResponsePartition{
+					PartitionIndex: partitionIdx,
+					ErrorCode:      int16(protocol.None),
+				}
+				if exists {
+					partResp.Offset = offset.Offset
+					partResp.Metadata = offset.Metadata
+				} else {
+					partResp.Offset = -1
+				}
+				topicResp.Partitions = append(topicResp.Partitions, partResp)
+			}
+			resp.Topics = append(resp.Topics, topicResp)
+		}
 	} else {
 		resp.Topics = make([]protocol.OffsetFetchResponseTopic, len(req.Topics))
 
@@ -552,8 +636,23 @@ func (h *Handler) handleOffsetFetch(r io.Reader, header *protocol.RequestHeader)
 			resp.Topics[i].Name = topic.Name
 
 			if topic.PartitionIndexes == nil {
-				// Fetch all partitions - not implemented yet
-				resp.Topics[i].Partitions = []protocol.OffsetFetchResponsePartition{}
+				// Fetch all partitions for this topic
+				allPartitions := h.coordinator.GetTopicPartitions(req.GroupID, topic.Name)
+				resp.Topics[i].Partitions = make([]protocol.OffsetFetchResponsePartition, 0, len(allPartitions))
+				for _, partitionIdx := range allPartitions {
+					offset, exists := h.coordinator.FetchOffset(req.GroupID, topic.Name, partitionIdx)
+					partResp := protocol.OffsetFetchResponsePartition{
+						PartitionIndex: partitionIdx,
+						ErrorCode:      int16(protocol.None),
+					}
+					if exists {
+						partResp.Offset = offset.Offset
+						partResp.Metadata = offset.Metadata
+					} else {
+						partResp.Offset = -1
+					}
+					resp.Topics[i].Partitions = append(resp.Topics[i].Partitions, partResp)
+				}
 			} else {
 				resp.Topics[i].Partitions = make([]protocol.OffsetFetchResponsePartition, len(topic.PartitionIndexes))
 

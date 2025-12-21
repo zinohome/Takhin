@@ -241,6 +241,46 @@ func (c *Coordinator) Start() {
 	}()
 }
 
+// GetGroupTopics returns all topics with committed offsets for a group
+func (c *Coordinator) GetGroupTopics(groupID string) map[string][]int32 {
+	group, exists := c.GetGroup(groupID)
+	if !exists {
+		return make(map[string][]int32)
+	}
+
+	group.mu.RLock()
+	defer group.mu.RUnlock()
+
+	result := make(map[string][]int32)
+	for topic, partitions := range group.OffsetCommits {
+		for partition := range partitions {
+			result[topic] = append(result[topic], partition)
+		}
+	}
+
+	return result
+}
+
+// GetTopicPartitions returns all partitions with committed offsets for a topic in a group
+func (c *Coordinator) GetTopicPartitions(groupID string, topic string) []int32 {
+	group, exists := c.GetGroup(groupID)
+	if !exists {
+		return []int32{}
+	}
+
+	group.mu.RLock()
+	defer group.mu.RUnlock()
+
+	partitions := make([]int32, 0)
+	if topicOffsets, exists := group.OffsetCommits[topic]; exists {
+		for partition := range topicOffsets {
+			partitions = append(partitions, partition)
+		}
+	}
+
+	return partitions
+}
+
 // GetAllGroups returns all groups
 func (c *Coordinator) GetAllGroups() map[string]*GroupInfo {
 	c.mu.RLock()
@@ -263,4 +303,118 @@ type GroupInfo struct {
 	GroupID      string
 	ProtocolType string
 	State        string
+}
+
+// ResetOffsets resets offsets for a group to specified values
+// Returns error if group is not in Empty or Dead state
+func (c *Coordinator) ResetOffsets(groupID string, offsets map[string]map[int32]int64) error {
+	group, exists := c.GetGroup(groupID)
+	if !exists {
+		return fmt.Errorf("group not found: %s", groupID)
+	}
+
+	group.mu.Lock()
+	defer group.mu.Unlock()
+
+	// Can only reset offsets for Empty or Dead groups
+	if group.State != GroupStateEmpty && group.State != GroupStateDead {
+		return fmt.Errorf("cannot reset offsets for group in state: %s", group.State)
+	}
+
+	// Reset the offsets
+	for topic, partitions := range offsets {
+		if _, exists := group.OffsetCommits[topic]; !exists {
+			group.OffsetCommits[topic] = make(map[int32]*OffsetAndMetadata)
+		}
+
+		for partition, offset := range partitions {
+			group.OffsetCommits[topic][partition] = &OffsetAndMetadata{
+				Offset:     offset,
+				CommitTime: time.Now(),
+			}
+		}
+	}
+
+	c.logger.Info("Reset offsets for group",
+		zap.String("group", groupID),
+		zap.Int("topics", len(offsets)))
+
+	return nil
+}
+
+// DeleteGroupOffsets deletes all offset commits for a group
+// This is different from DeleteGroup which removes the entire group
+func (c *Coordinator) DeleteGroupOffsets(groupID string) error {
+	group, exists := c.GetGroup(groupID)
+	if !exists {
+		return fmt.Errorf("group not found: %s", groupID)
+	}
+
+	group.mu.Lock()
+	defer group.mu.Unlock()
+
+	// Can only delete offsets for Empty or Dead groups
+	if group.State != GroupStateEmpty && group.State != GroupStateDead {
+		return fmt.Errorf("cannot delete offsets for group in state: %s", group.State)
+	}
+
+	// Clear all offset commits
+	group.OffsetCommits = make(map[string]map[int32]*OffsetAndMetadata)
+
+	c.logger.Info("Deleted offsets for group", zap.String("group", groupID))
+
+	return nil
+}
+
+// ForceDeleteGroup forcefully removes a group regardless of state
+// WARNING: This should only be used by admin operations
+func (c *Coordinator) ForceDeleteGroup(groupID string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	group, exists := c.groups[groupID]
+	if !exists {
+		return fmt.Errorf("group not found: %s", groupID)
+	}
+
+	// Mark all members as dead
+	group.mu.Lock()
+	for _, member := range group.Members {
+		member.State = MemberStateDead
+	}
+	for _, member := range group.PendingMembers {
+		member.State = MemberStateDead
+	}
+	group.State = GroupStateDead
+	group.mu.Unlock()
+
+	// Remove the group
+	delete(c.groups, groupID)
+
+	c.logger.Info("Force deleted group", zap.String("group", groupID))
+
+	return nil
+}
+
+// CanDeleteGroup checks if a group can be safely deleted
+func (c *Coordinator) CanDeleteGroup(groupID string) (bool, string) {
+	group, exists := c.GetGroup(groupID)
+	if !exists {
+		return false, "group not found"
+	}
+
+	group.mu.RLock()
+	defer group.mu.RUnlock()
+
+	// Can only delete Empty or Dead groups
+	if group.State != GroupStateEmpty && group.State != GroupStateDead {
+		return false, fmt.Sprintf("group is in %s state", group.State)
+	}
+
+	// Check if there are any active members
+	if len(group.Members) > 0 || len(group.PendingMembers) > 0 {
+		return false, "group has active members"
+	}
+
+	return true, ""
 }
