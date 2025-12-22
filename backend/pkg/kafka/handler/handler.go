@@ -25,12 +25,16 @@ type Handler struct {
 	coordinator       *coordinator.Coordinator
 	producerIDManager *ProducerIDManager
 	txnCoordinator    *TransactionCoordinator
+	replicaAssigner   *replication.ReplicaAssigner // Replica assignment strategy
 }
 
 // New creates a new request handler with direct backend
 func New(cfg *config.Config, topicMgr *topic.Manager) *Handler {
 	coord := coordinator.NewCoordinator()
 	coord.Start()
+
+	// Build broker list for replica assignment
+	brokers := buildBrokerList(cfg)
 
 	return &Handler{
 		config:            cfg,
@@ -40,6 +44,7 @@ func New(cfg *config.Config, topicMgr *topic.Manager) *Handler {
 		coordinator:       coord,
 		producerIDManager: NewProducerIDManager(),
 		txnCoordinator:    NewTransactionCoordinator(),
+		replicaAssigner:   replication.NewReplicaAssigner(brokers),
 	}
 }
 
@@ -47,6 +52,9 @@ func New(cfg *config.Config, topicMgr *topic.Manager) *Handler {
 func NewWithBackend(cfg *config.Config, topicMgr *topic.Manager, backend Backend) *Handler {
 	coord := coordinator.NewCoordinator()
 	coord.Start()
+
+	// Build broker list for replica assignment
+	brokers := buildBrokerList(cfg)
 
 	return &Handler{
 		config:            cfg,
@@ -56,7 +64,24 @@ func NewWithBackend(cfg *config.Config, topicMgr *topic.Manager, backend Backend
 		coordinator:       coord,
 		producerIDManager: NewProducerIDManager(),
 		txnCoordinator:    NewTransactionCoordinator(),
+		replicaAssigner:   replication.NewReplicaAssigner(brokers),
 	}
+}
+
+// buildBrokerList constructs the broker list for replica assignment
+// Priority: 1) ClusterBrokers config, 2) current broker only
+func buildBrokerList(cfg *config.Config) []int32 {
+	// If cluster brokers are configured, use them
+	if len(cfg.Kafka.ClusterBrokers) > 0 {
+		brokers := make([]int32, len(cfg.Kafka.ClusterBrokers))
+		for i, brokerID := range cfg.Kafka.ClusterBrokers {
+			brokers[i] = int32(brokerID)
+		}
+		return brokers
+	}
+
+	// Default: single broker (current broker)
+	return []int32{int32(cfg.Kafka.BrokerID)}
 }
 
 // HandleRequest processes a Kafka request and returns a response
@@ -864,9 +889,6 @@ func (h *Handler) handleCreateTopics(r io.Reader, header *protocol.RequestHeader
 		Topics:         make([]protocol.CreatableTopicResult, 0, len(req.Topics)),
 	}
 
-	// Create replica assigner with current broker as seed
-	assigner := replication.NewReplicaAssigner([]int32{int32(h.config.Kafka.BrokerID)})
-
 	for _, topic := range req.Topics {
 		result := protocol.CreatableTopicResult{
 			Name:              topic.Name,
@@ -917,7 +939,7 @@ func (h *Handler) handleCreateTopics(r io.Reader, header *protocol.RequestHeader
 				createdTopic.SetReplicationFactor(rf)
 
 				// Assign replicas using ReplicaAssigner
-				assignments, err := assigner.AssignReplicas(topic.NumPartitions, rf)
+				assignments, err := h.replicaAssigner.AssignReplicas(topic.NumPartitions, rf)
 				if err != nil {
 					h.logger.Error("assign replicas", "error", err, "topic", topic.Name)
 				} else {

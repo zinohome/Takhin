@@ -11,6 +11,13 @@ server:
 kafka:
   broker:
     id: 1
+  
+  # Cluster Configuration - List of all broker IDs in the cluster
+  # If not specified, defaults to single-broker mode with current broker ID
+  # Example for 3-broker cluster: [1, 2, 3]
+  cluster:
+    brokers: [1]  # Single broker by default, change for multi-broker setup
+  
   listeners:
     - "tcp://0.0.0.0:9092"
   advertised:

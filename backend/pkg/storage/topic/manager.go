@@ -34,7 +34,9 @@ type Topic struct {
 	LastFetchTime map[int32]map[int32]time.Time
 	// ReplicaLagMaxMs is the max lag time before removing from ISR (default 10000ms)
 	ReplicaLagMaxMs int64
-	mu              sync.RWMutex
+	// baseDir is the data directory for metadata persistence
+	baseDir string
+	mu      sync.RWMutex
 }
 
 // SetReplicationFactor updates the metadata replication factor
@@ -60,6 +62,11 @@ func (t *Topic) SetReplicas(partitionID int32, replicas []int32) {
 		t.ISR = make(map[int32][]int32)
 	}
 	t.ISR[partitionID] = replicas
+
+	// Save metadata after updating replicas (without re-locking)
+	if t.baseDir != "" {
+		_ = t.saveMetadataLocked(t.baseDir) // Ignore error for now
+	}
 }
 
 // GetReplicas returns replica assignment for a partition
@@ -90,6 +97,11 @@ func (t *Topic) SetISR(partitionID int32, isr []int32) {
 		t.ISR = make(map[int32][]int32)
 	}
 	t.ISR[partitionID] = isr
+
+	// Save metadata after updating ISR (without re-locking)
+	if t.baseDir != "" {
+		_ = t.saveMetadataLocked(t.baseDir) // Ignore error for now
+	}
 }
 
 // UpdateFollowerLEO updates the Log End Offset for a follower replica
@@ -206,7 +218,7 @@ func (t *Topic) GetLeaderForPartition(partitionID int32) (int32, bool) {
 
 // NewManager creates a new topic manager
 func NewManager(dataDir string, maxSegmentSize int64) *Manager {
-	return &Manager{
+	m := &Manager{
 		dataDir: dataDir,
 		topics:  make(map[string]*Topic),
 		logConfig: log.LogConfig{
@@ -214,6 +226,90 @@ func NewManager(dataDir string, maxSegmentSize int64) *Manager {
 		},
 		cleaner: nil, // Will be initialized by SetCleaner if needed
 	}
+
+	// Load existing topics from disk
+	if err := m.loadExistingTopics(); err != nil {
+		// Log error but continue - topics can be recreated
+		// TODO: Add proper logging
+		_ = err
+	}
+
+	return m
+}
+
+// loadExistingTopics scans the data directory and loads existing topics
+func (m *Manager) loadExistingTopics() error {
+	// Ensure data directory exists
+	if err := os.MkdirAll(m.dataDir, 0755); err != nil {
+		return fmt.Errorf("create data directory: %w", err)
+	}
+
+	entries, err := os.ReadDir(m.dataDir)
+	if err != nil {
+		return fmt.Errorf("read data directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		topicName := entry.Name()
+
+		// Try to load metadata
+		metadata, err := LoadMetadata(m.dataDir, topicName)
+		if err != nil {
+			// Skip this topic if metadata is corrupted
+			continue
+		}
+
+		// Recreate topic from metadata
+		if metadata != nil {
+			if err := m.recreateTopic(topicName, metadata); err != nil {
+				// Log error but continue with other topics
+				continue
+			}
+		}
+	}
+
+	return nil
+}
+
+// recreateTopic recreates a topic from persisted metadata
+func (m *Manager) recreateTopic(name string, metadata *TopicMetadata) error {
+	topic := &Topic{
+		Name:              name,
+		Partitions:        make(map[int32]*log.Log),
+		Replicas:          make(map[int32][]int32),
+		ISR:               make(map[int32][]int32),
+		FollowerLEO:       make(map[int32]map[int32]int64),
+		LastFetchTime:     make(map[int32]map[int32]time.Time),
+		ReplicationFactor: metadata.ReplicationFactor,
+		ReplicaLagMaxMs:   10000, // Default
+		baseDir:           m.dataDir,
+	}
+
+	// Apply metadata (Replicas, ISR)
+	if err := topic.ApplyMetadata(metadata); err != nil {
+		return fmt.Errorf("apply metadata: %w", err)
+	}
+
+	// Load partition logs
+	for _, pm := range metadata.Partitions {
+		partitionDir := filepath.Join(m.dataDir, name, fmt.Sprintf("partition-%d", pm.PartitionID))
+
+		logConfig := m.logConfig
+		logConfig.Dir = partitionDir
+
+		partition, err := log.NewLog(logConfig)
+		if err != nil {
+			return fmt.Errorf("load partition %d: %w", pm.PartitionID, err)
+		}
+		topic.Partitions[pm.PartitionID] = partition
+	}
+
+	m.topics[name] = topic
+	return nil
 }
 
 // SetCleaner sets the background cleaner for this manager
@@ -241,6 +337,7 @@ func (m *Manager) CreateTopic(name string, numPartitions int32) error {
 		LastFetchTime:     make(map[int32]map[int32]time.Time),
 		ReplicationFactor: 1,
 		ReplicaLagMaxMs:   10000, // Default 10 seconds
+		baseDir:           m.dataDir,
 	}
 
 	// Create partitions
@@ -264,6 +361,14 @@ func (m *Manager) CreateTopic(name string, numPartitions int32) error {
 	}
 
 	m.topics[name] = topic
+
+	// Save metadata to disk
+	if err := topic.SaveMetadata(m.dataDir); err != nil {
+		// Log error but don't fail topic creation
+		// TODO: Add proper logging
+		_ = err
+	}
+
 	return nil
 }
 

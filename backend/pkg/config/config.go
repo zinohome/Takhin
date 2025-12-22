@@ -39,6 +39,7 @@ type KafkaConfig struct {
 	MaxConnections    int      `koanf:"max.connections"`
 	RequestTimeout    int      `koanf:"request.timeout.ms"`
 	ConnectionTimeout int      `koanf:"connection.timeout.ms"`
+	ClusterBrokers    []int    `koanf:"cluster.brokers"` // List of all broker IDs in cluster
 }
 
 // StorageConfig holds storage configuration
@@ -201,6 +202,21 @@ func validate(cfg *Config) error {
 
 	if cfg.Kafka.BrokerID < 0 {
 		return fmt.Errorf("invalid broker ID: %d", cfg.Kafka.BrokerID)
+	}
+
+	// Validate cluster brokers
+	if len(cfg.Kafka.ClusterBrokers) > 0 {
+		// Check that current broker is in the list
+		found := false
+		for _, brokerID := range cfg.Kafka.ClusterBrokers {
+			if brokerID == cfg.Kafka.BrokerID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("current broker ID %d not found in cluster.brokers list", cfg.Kafka.BrokerID)
+		}
 	}
 
 	if cfg.Storage.LogSegmentSize <= 0 {

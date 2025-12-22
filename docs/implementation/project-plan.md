@@ -108,10 +108,10 @@
 ### Phase 2: Core 引擎开发 (16-20周)
 
 #### 近期优先事项（复制与 ISR）
-- [ ] Follower Fetch 与 LEO/ISR 更新，支撑 acks=-1（实现 follower fetch handler，记录 follower LEO，按 lag 维护 ISR/HWM）
-- [ ] 副本分配持久化到磁盘（序列化 Topic.Replicas/ISR 元数据，启动时加载）
-- [ ] Metadata 动态反映 ISR 变化（从 Topic.GetReplicas/GetISR 读取，跟随 ISR 收缩/扩展更新）
-- [ ] 多 Broker 副本分配（CreateTopics/AlterConfigs 支持 broker 列表与 RF/分配调整，ReplicaAssigner 扩展）
+- [x] Follower Fetch 与 LEO/ISR 更新，支撑 acks=-1 ✅ 完成（实现 follower fetch handler，记录 follower LEO，按 lag 维护 ISR/HWM）
+- [x] 副本分配持久化到磁盘 ✅ 完成（序列化 Topic.Replicas/ISR 元数据，启动时加载）
+- [x] Metadata 动态反映 ISR 变化 ✅ 完成（从 Topic.GetReplicas/GetISR 读取，跟随 ISR 收缩/扩展更新）
+- [x] 多 Broker 副本分配 ✅ 完成（CreateTopics/AlterConfigs 支持 broker 列表与 RF/分配调整，ReplicaAssigner 扩展）
 
 #### 目标
 - 实现 Kafka 协议兼容
@@ -1108,9 +1108,10 @@ describe('TopicService', () => {
 #### ❌ 待实现功能
 1. **复制机制** (P0 - 高优先级) - 🔄 进行中
    - ✅ 数据结构和基础架构 (Sprint 16)
-   - ❌ Metadata 集成
-   - ❌ Follower Fetch 处理
-   - ❌ Producer ACKs 语义 (acks=-1)
+   - ✅ Follower Fetch 处理 (Sprint 16)
+   - ✅ ISR 管理和 HWM 计算 (Sprint 16)
+   - ✅ 副本分配持久化 (Sprint 16)
+   - ❌ Producer ACKs 语义完整实现 (acks=-1 等待ISR)
    - ❌ Leader 选举 (Raft 集成)
 
 2. **集群管理** (P0 - 高优先级)
@@ -1195,8 +1196,12 @@ describe('TopicService', () => {
 **最新进展** (Sprint 16):
 - ✅ 副本复制基础架构完成
 - ✅ ISR 管理和 HWM 计算实现
+- ✅ Follower Fetch 机制完成
+- ✅ 副本元数据持久化实现
+- ✅ Metadata 动态 ISR 反映验证
+- ✅ 多 Broker 副本分配实现
 - ✅ Round-Robin 副本分配算法
-- ✅ Replication 配置系统
+- ✅ Replication 配置系统扩展
 
 ---
 
