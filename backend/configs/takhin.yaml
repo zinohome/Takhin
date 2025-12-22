@@ -50,6 +50,35 @@ storage:
       interval:
         ms: 1000          # 1 second
       messages: 10000     # Flush after 10k messages
+  
+  # Background Cleaner Settings
+  cleaner:
+    enabled: true         # Enable background cleanup and compaction
+  
+  # Log Compaction Settings
+  compaction:
+    interval:
+      ms: 600000          # 10 minutes
+    min:
+      cleanable:
+        ratio: 0.5        # Compact when 50% is dirty
+
+# Replication Configuration
+replication:
+  default:
+    replication:
+      factor: 1           # Default replication factor (1 = no replication)
+  replica:
+    lag:
+      time:
+        max:
+          ms: 10000       # 10 seconds - max lag before removing from ISR
+    fetch:
+      wait:
+        max:
+          ms: 500         # Follower fetch wait time
+      max:
+        bytes: 1048576    # 1MB - max bytes per follower fetch
 
 # Logging Configuration
 logging:

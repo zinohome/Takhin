@@ -13,6 +13,7 @@ import (
 	"github.com/takhin-data/takhin/pkg/kafka/server"
 	"github.com/takhin-data/takhin/pkg/logger"
 	"github.com/takhin-data/takhin/pkg/metrics"
+	storagelog "github.com/takhin-data/takhin/pkg/storage/log"
 	"github.com/takhin-data/takhin/pkg/storage/topic"
 )
 
@@ -60,6 +61,36 @@ func main() {
 	topicManager := topic.NewManager(cfg.Storage.DataDir, cfg.Storage.LogSegmentSize)
 	log.Info("initialized topic manager")
 
+	// Initialize and start background cleaner if enabled
+	var cleaner *storagelog.Cleaner
+	if cfg.Storage.CleanerEnabled {
+		cleanerConfig := storagelog.CleanerConfig{
+			CleanupIntervalSeconds:    cfg.Storage.LogCleanupInterval / 1000, // Convert ms to seconds
+			CompactionIntervalSeconds: cfg.Storage.CompactionInterval / 1000,
+			RetentionPolicy: storagelog.RetentionPolicy{
+				RetentionBytes: cfg.Storage.LogRetentionBytes,
+				RetentionMs:    int64(cfg.Storage.LogRetentionHours) * 3600 * 1000,
+			},
+			CompactionPolicy: storagelog.CompactionPolicy{
+				MinCleanableRatio:  cfg.Storage.MinCleanableRatio,
+				MinCompactionLagMs: 0,
+				DeleteRetentionMs:  24 * 60 * 60 * 1000, // 24 hours
+			},
+			Enabled: true,
+		}
+		cleaner = storagelog.NewCleaner(cleanerConfig)
+		topicManager.SetCleaner(cleaner)
+
+		if err := cleaner.Start(); err != nil {
+			log.Fatal("failed to start background cleaner", "error", err)
+		}
+		log.Info("started background cleaner",
+			"cleanup_interval_sec", cleanerConfig.CleanupIntervalSeconds,
+			"compaction_interval_sec", cleanerConfig.CompactionIntervalSeconds)
+	} else {
+		log.Info("background cleaner is disabled")
+	}
+
 	// Start metrics server
 	metricsServer := metrics.New(cfg)
 	if err := metricsServer.Start(); err != nil {
@@ -86,6 +117,13 @@ func main() {
 
 	// Graceful shutdown
 	kafkaServer.Stop()
+
+	// Stop cleaner if running
+	if cleaner != nil {
+		if err := cleaner.Stop(); err != nil {
+			log.Error("failed to stop cleaner", "error", err)
+		}
+	}
 
 	if err := topicManager.Close(); err != nil {
 		log.Error("failed to close topic manager", "error", err)

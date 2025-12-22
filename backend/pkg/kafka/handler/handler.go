@@ -12,6 +12,7 @@ import (
 	"github.com/takhin-data/takhin/pkg/coordinator"
 	"github.com/takhin-data/takhin/pkg/kafka/protocol"
 	"github.com/takhin-data/takhin/pkg/logger"
+	"github.com/takhin-data/takhin/pkg/replication"
 	"github.com/takhin-data/takhin/pkg/storage/topic"
 )
 
@@ -191,12 +192,24 @@ func (h *Handler) handleMetadata(r io.Reader, header *protocol.RequestHeader) ([
 			}
 			// Add partition metadata
 			for partitionID := range topic.Partitions {
+				// Get replica assignment for this partition
+				replicas := topic.GetReplicas(partitionID)
+				isr := topic.GetISR(partitionID)
+
+				// Default to current broker if no assignment
+				if replicas == nil || len(replicas) == 0 {
+					replicas = []int32{int32(h.config.Kafka.BrokerID)}
+				}
+				if isr == nil || len(isr) == 0 {
+					isr = []int32{int32(h.config.Kafka.BrokerID)}
+				}
+
 				partMeta := protocol.PartitionMetadata{
 					ErrorCode:       protocol.None,
 					PartitionID:     partitionID,
-					Leader:          int32(h.config.Kafka.BrokerID),
-					Replicas:        []int32{int32(h.config.Kafka.BrokerID)},
-					ISR:             []int32{int32(h.config.Kafka.BrokerID)},
+					Leader:          replicas[0], // First replica is leader
+					Replicas:        replicas,
+					ISR:             isr,
 					OfflineReplicas: []int32{},
 				}
 				topicMeta.PartitionMetadata = append(topicMeta.PartitionMetadata, partMeta)
@@ -225,12 +238,24 @@ func (h *Handler) handleMetadata(r io.Reader, header *protocol.RequestHeader) ([
 			}
 			// Add partition metadata
 			for partitionID := range topic.Partitions {
+				// Get replica assignment for this partition
+				replicas := topic.GetReplicas(partitionID)
+				isr := topic.GetISR(partitionID)
+
+				// Default to current broker if no assignment
+				if replicas == nil || len(replicas) == 0 {
+					replicas = []int32{int32(h.config.Kafka.BrokerID)}
+				}
+				if isr == nil || len(isr) == 0 {
+					isr = []int32{int32(h.config.Kafka.BrokerID)}
+				}
+
 				partMeta := protocol.PartitionMetadata{
 					ErrorCode:       protocol.None,
 					PartitionID:     partitionID,
-					Leader:          int32(h.config.Kafka.BrokerID),
-					Replicas:        []int32{int32(h.config.Kafka.BrokerID)},
-					ISR:             []int32{int32(h.config.Kafka.BrokerID)},
+					Leader:          replicas[0], // First replica is leader
+					Replicas:        replicas,
+					ISR:             isr,
 					OfflineReplicas: []int32{},
 				}
 				topicMeta.PartitionMetadata = append(topicMeta.PartitionMetadata, partMeta)
@@ -283,13 +308,14 @@ func (h *Handler) handleProduce(r io.Reader, header *protocol.RequestHeader) ([]
 	}
 
 	for _, topicData := range req.TopicData {
-		_, exists := h.backend.GetTopic(topicData.TopicName)
+		topic, exists := h.backend.GetTopic(topicData.TopicName)
 		if !exists {
 			// Auto-create topic with 1 partition
 			if err := h.backend.CreateTopic(topicData.TopicName, 1); err != nil {
 				h.logger.Error("create topic", "error", err, "topic", topicData.TopicName)
 				continue
 			}
+			topic, _ = h.backend.GetTopic(topicData.TopicName)
 		}
 
 		topicResp := protocol.ProduceTopicResponse{
@@ -312,6 +338,32 @@ func (h *Handler) handleProduce(r io.Reader, header *protocol.RequestHeader) ([]
 			} else {
 				partResp.ErrorCode = protocol.None
 				partResp.BaseOffset = offset
+
+				// Handle acks=-1: wait for all ISR replicas
+				if req.Acks == -1 && topic != nil {
+					isr := topic.GetISR(partData.PartitionIndex)
+					isrSize := len(isr)
+
+					// Log ISR status
+					h.logger.Debug("acks=-1 produce",
+						"topic", topicData.TopicName,
+						"partition", partData.PartitionIndex,
+						"offset", offset,
+						"isr_size", isrSize,
+						"isr", isr,
+					)
+
+					// For single-broker setup, ISR check is satisfied immediately
+					// In multi-broker, we would wait for follower acknowledgments here
+					if isrSize < int(topic.ReplicationFactor) {
+						h.logger.Warn("isr size below replication factor",
+							"topic", topicData.TopicName,
+							"partition", partData.PartitionIndex,
+							"isr_size", isrSize,
+							"replication_factor", topic.ReplicationFactor,
+						)
+					}
+				}
 			}
 
 			topicResp.PartitionResponses = append(topicResp.PartitionResponses, partResp)
@@ -343,10 +395,15 @@ func (h *Handler) handleFetch(r io.Reader, header *protocol.RequestHeader) ([]by
 		return nil, fmt.Errorf("decode fetch request: %w", err)
 	}
 
+	// Check if this is a replica fetch (has ReplicaID >= 0)
+	isReplicaFetch := req.ReplicaID >= 0
+
 	h.logger.Debug("fetch request",
 		"correlation_id", header.CorrelationID,
 		"topics", len(req.Topics),
 		"max_wait_ms", req.MaxWaitMs,
+		"replica_id", req.ReplicaID,
+		"is_replica_fetch", isReplicaFetch,
 	)
 
 	resp := &protocol.FetchResponse{
@@ -385,6 +442,26 @@ func (h *Handler) handleFetch(r io.Reader, header *protocol.RequestHeader) ([]by
 				if err == nil && record != nil {
 					partResp.Records = record.Value
 				}
+			}
+
+			// If this is a replica fetch, update follower LEO
+			if isReplicaFetch && req.ReplicaID != int32(h.config.Kafka.BrokerID) {
+				// Follower's LEO is their fetch offset (where they want to read next)
+				followerLEO := partReq.FetchOffset
+				topic.UpdateFollowerLEO(partReq.PartitionIndex, req.ReplicaID, followerLEO)
+
+				// Update ISR based on current follower state
+				leaderLEO := hwm
+				newISR := topic.UpdateISR(partReq.PartitionIndex, leaderLEO)
+
+				h.logger.Debug("updated follower state",
+					"topic", topicReq.TopicName,
+					"partition", partReq.PartitionIndex,
+					"follower_id", req.ReplicaID,
+					"follower_leo", followerLEO,
+					"leader_leo", leaderLEO,
+					"isr", newISR,
+				)
 			}
 
 			topicResp.PartitionResponses = append(topicResp.PartitionResponses, partResp)
@@ -437,6 +514,11 @@ func (h *Handler) handleJoinGroup(r io.Reader, header *protocol.RequestHeader) (
 		return nil, fmt.Errorf("decode join group request: %w", err)
 	}
 
+	// Assign a member ID if client didn't provide one
+	if req.MemberID == "" {
+		req.MemberID = fmt.Sprintf("%s-%d", header.ClientID, time.Now().UnixNano())
+	}
+
 	// Convert protocols
 	protocols := make([]coordinator.MemberProtocol, len(req.Protocols))
 	for i, p := range req.Protocols {
@@ -465,7 +547,13 @@ func (h *Handler) handleJoinGroup(r io.Reader, header *protocol.RequestHeader) (
 		return h.encodeResponse(header, resp)
 	}
 
-	// Select protocol
+	// Trigger rebalance if needed: move members to pending, bump generation, then stabilize
+	if needsRebalance {
+		group.PrepareRebalance()
+		group.CompleteRebalance()
+	}
+
+	// Select protocol (after stabilization)
 	protocolName, _ := group.SelectProtocol()
 
 	// Build response
@@ -487,11 +575,6 @@ func (h *Handler) handleJoinGroup(r io.Reader, header *protocol.RequestHeader) (
 				Metadata: m.Metadata,
 			}
 		}
-	}
-
-	// Trigger rebalance if needed
-	if needsRebalance {
-		group.PrepareRebalance()
 	}
 
 	return h.encodeResponse(header, resp)
@@ -781,6 +864,9 @@ func (h *Handler) handleCreateTopics(r io.Reader, header *protocol.RequestHeader
 		Topics:         make([]protocol.CreatableTopicResult, 0, len(req.Topics)),
 	}
 
+	// Create replica assigner with current broker as seed
+	assigner := replication.NewReplicaAssigner([]int32{int32(h.config.Kafka.BrokerID)})
+
 	for _, topic := range req.Topics {
 		result := protocol.CreatableTopicResult{
 			Name:              topic.Name,
@@ -815,6 +901,11 @@ func (h *Handler) handleCreateTopics(r io.Reader, header *protocol.RequestHeader
 		}
 
 		// Create topic
+		rf := topic.ReplicationFactor
+		if rf <= 0 {
+			rf = h.config.Replication.DefaultReplicationFactor
+		}
+
 		err := h.backend.CreateTopic(topic.Name, topic.NumPartitions)
 		if err != nil {
 			result.ErrorCode = protocol.InvalidRequest
@@ -822,10 +913,25 @@ func (h *Handler) handleCreateTopics(r io.Reader, header *protocol.RequestHeader
 			result.ErrorMessage = &errMsg
 			h.logger.Error("create topic", "error", err, "topic", topic.Name)
 		} else {
+			if createdTopic, ok := h.backend.GetTopic(topic.Name); ok {
+				createdTopic.SetReplicationFactor(rf)
+
+				// Assign replicas using ReplicaAssigner
+				assignments, err := assigner.AssignReplicas(topic.NumPartitions, rf)
+				if err != nil {
+					h.logger.Error("assign replicas", "error", err, "topic", topic.Name)
+				} else {
+					// Store replica assignments in topic metadata
+					for partitionID, replicas := range assignments {
+						createdTopic.SetReplicas(partitionID, replicas)
+					}
+				}
+			}
 			result.ErrorCode = protocol.None
 			h.logger.Info("created topic",
 				"topic", topic.Name,
 				"partitions", topic.NumPartitions,
+				"replication_factor", rf,
 			)
 		}
 

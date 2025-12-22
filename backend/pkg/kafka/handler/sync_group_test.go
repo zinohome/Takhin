@@ -53,11 +53,11 @@ func TestHandleSyncGroup_Leader(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now sync group (as leader with assignments)
-	// Note: Generation increments due to PrepareRebalance() in handleJoinGroup
+	// Use the generation returned by JoinGroup
 	req := &protocol.SyncGroupRequest{
 		GroupID:      "test-group",
 		MemberID:     joinResp.MemberID,
-		GenerationID: joinResp.GenerationID + 1, // Generation was incremented by PrepareRebalance
+		GenerationID: joinResp.GenerationID,
 		Assignments: []protocol.SyncGroupAssignment{
 			{
 				MemberID:   joinResp.MemberID,
@@ -127,11 +127,11 @@ func TestHandleSyncGroup_Follower(t *testing.T) {
 	require.NoError(t, err)
 
 	// Sync as follower (empty assignments)
-	// Note: Generation increments due to PrepareRebalance() in handleJoinGroup
+	// Use the generation returned by JoinGroup
 	req := &protocol.SyncGroupRequest{
 		GroupID:      "test-group",
 		MemberID:     joinResp.MemberID,
-		GenerationID: joinResp.GenerationID + 1,        // Generation was incremented by PrepareRebalance
+		GenerationID: joinResp.GenerationID,
 		Assignments:  []protocol.SyncGroupAssignment{}, // Follower sends empty
 	}
 

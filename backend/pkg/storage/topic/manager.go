@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/takhin-data/takhin/pkg/storage/log"
 )
@@ -15,13 +16,192 @@ type Manager struct {
 	topics    map[string]*Topic
 	mu        sync.RWMutex
 	logConfig log.LogConfig
+	cleaner   *log.Cleaner
 }
 
 // Topic represents a topic with its partitions
 type Topic struct {
-	Name       string
-	Partitions map[int32]*log.Log
-	mu         sync.RWMutex
+	Name              string
+	Partitions        map[int32]*log.Log
+	ReplicationFactor int16
+	// Replicas maps partitionID -> list of replica broker IDs
+	Replicas map[int32][]int32
+	// ISR maps partitionID -> list of in-sync replica broker IDs
+	ISR map[int32][]int32
+	// FollowerLEO tracks Log End Offset for each follower: partitionID -> brokerID -> LEO
+	FollowerLEO map[int32]map[int32]int64
+	// LastFetchTime tracks last fetch time for each follower: partitionID -> brokerID -> time
+	LastFetchTime map[int32]map[int32]time.Time
+	// ReplicaLagMaxMs is the max lag time before removing from ISR (default 10000ms)
+	ReplicaLagMaxMs int64
+	mu              sync.RWMutex
+}
+
+// SetReplicationFactor updates the metadata replication factor
+func (t *Topic) SetReplicationFactor(rf int16) {
+	if rf <= 0 {
+		rf = 1
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.ReplicationFactor = rf
+}
+
+// SetReplicas updates replica assignments for a partition
+func (t *Topic) SetReplicas(partitionID int32, replicas []int32) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.Replicas == nil {
+		t.Replicas = make(map[int32][]int32)
+	}
+	t.Replicas[partitionID] = replicas
+	// Initialize ISR with all replicas (assume all in-sync initially)
+	if t.ISR == nil {
+		t.ISR = make(map[int32][]int32)
+	}
+	t.ISR[partitionID] = replicas
+}
+
+// GetReplicas returns replica assignment for a partition
+func (t *Topic) GetReplicas(partitionID int32) []int32 {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	if t.Replicas == nil {
+		return nil
+	}
+	return t.Replicas[partitionID]
+}
+
+// GetISR returns in-sync replicas for a partition
+func (t *Topic) GetISR(partitionID int32) []int32 {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	if t.ISR == nil {
+		return nil
+	}
+	return t.ISR[partitionID]
+}
+
+// SetISR sets the in-sync replica set for a partition (for testing)
+func (t *Topic) SetISR(partitionID int32, isr []int32) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.ISR == nil {
+		t.ISR = make(map[int32][]int32)
+	}
+	t.ISR[partitionID] = isr
+}
+
+// UpdateFollowerLEO updates the Log End Offset for a follower replica
+func (t *Topic) UpdateFollowerLEO(partitionID int32, followerID int32, leo int64) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.FollowerLEO == nil {
+		t.FollowerLEO = make(map[int32]map[int32]int64)
+	}
+	if t.FollowerLEO[partitionID] == nil {
+		t.FollowerLEO[partitionID] = make(map[int32]int64)
+	}
+	t.FollowerLEO[partitionID][followerID] = leo
+
+	if t.LastFetchTime == nil {
+		t.LastFetchTime = make(map[int32]map[int32]time.Time)
+	}
+	if t.LastFetchTime[partitionID] == nil {
+		t.LastFetchTime[partitionID] = make(map[int32]time.Time)
+	}
+	t.LastFetchTime[partitionID][followerID] = time.Now()
+}
+
+// GetFollowerLEO returns the Log End Offset for a follower replica
+func (t *Topic) GetFollowerLEO(partitionID int32, followerID int32) (int64, bool) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	if t.FollowerLEO == nil || t.FollowerLEO[partitionID] == nil {
+		return 0, false
+	}
+	leo, exists := t.FollowerLEO[partitionID][followerID]
+	return leo, exists
+}
+
+// UpdateISR updates the in-sync replica set for a partition based on lag
+func (t *Topic) UpdateISR(partitionID int32, leaderLEO int64) []int32 {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	replicas := t.Replicas[partitionID]
+	if replicas == nil || len(replicas) == 0 {
+		return nil
+	}
+
+	// Default lag max time: 10 seconds
+	lagMaxMs := t.ReplicaLagMaxMs
+	if lagMaxMs <= 0 {
+		lagMaxMs = 10000
+	}
+
+	newISR := make([]int32, 0, len(replicas))
+	now := time.Now()
+
+	// Leader is always in ISR
+	leader := replicas[0]
+	newISR = append(newISR, leader)
+
+	// Check each follower
+	for _, replicaID := range replicas[1:] {
+		inSync := false
+
+		// Follower must have both: caught up LEO AND recent fetch
+		hasLEO := false
+		hasFetch := false
+
+		// Check if follower LEO is caught up (within 1 offset)
+		if t.FollowerLEO != nil && t.FollowerLEO[partitionID] != nil {
+			followerLEO, exists := t.FollowerLEO[partitionID][replicaID]
+			if exists && leaderLEO-followerLEO <= 1 {
+				hasLEO = true
+			}
+		}
+
+		// Check if follower fetched recently
+		if t.LastFetchTime != nil && t.LastFetchTime[partitionID] != nil {
+			lastFetch, exists := t.LastFetchTime[partitionID][replicaID]
+			if exists && now.Sub(lastFetch).Milliseconds() <= lagMaxMs {
+				hasFetch = true
+			}
+		}
+
+		// Follower is in-sync if both LEO is caught up AND fetch is recent
+		if hasLEO && hasFetch {
+			inSync = true
+		}
+
+		if inSync {
+			newISR = append(newISR, replicaID)
+		}
+	}
+
+	// Update ISR if changed
+	if t.ISR == nil {
+		t.ISR = make(map[int32][]int32)
+	}
+	t.ISR[partitionID] = newISR
+
+	return newISR
+}
+
+// GetLeaderForPartition returns the leader broker ID for a partition
+func (t *Topic) GetLeaderForPartition(partitionID int32) (int32, bool) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	replicas := t.Replicas[partitionID]
+	if replicas == nil || len(replicas) == 0 {
+		return -1, false
+	}
+	return replicas[0], true
 }
 
 // NewManager creates a new topic manager
@@ -32,7 +212,15 @@ func NewManager(dataDir string, maxSegmentSize int64) *Manager {
 		logConfig: log.LogConfig{
 			MaxSegmentSize: maxSegmentSize,
 		},
+		cleaner: nil, // Will be initialized by SetCleaner if needed
 	}
+}
+
+// SetCleaner sets the background cleaner for this manager
+func (m *Manager) SetCleaner(cleaner *log.Cleaner) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.cleaner = cleaner
 }
 
 // CreateTopic creates a new topic with the specified number of partitions
@@ -45,8 +233,14 @@ func (m *Manager) CreateTopic(name string, numPartitions int32) error {
 	}
 
 	topic := &Topic{
-		Name:       name,
-		Partitions: make(map[int32]*log.Log),
+		Name:              name,
+		Partitions:        make(map[int32]*log.Log),
+		Replicas:          make(map[int32][]int32),
+		ISR:               make(map[int32][]int32),
+		FollowerLEO:       make(map[int32]map[int32]int64),
+		LastFetchTime:     make(map[int32]map[int32]time.Time),
+		ReplicationFactor: 1,
+		ReplicaLagMaxMs:   10000, // Default 10 seconds
 	}
 
 	// Create partitions
@@ -61,6 +255,12 @@ func (m *Manager) CreateTopic(name string, numPartitions int32) error {
 			return fmt.Errorf("create partition %d: %w", i, err)
 		}
 		topic.Partitions[i] = partition
+
+		// Register with cleaner if available
+		if m.cleaner != nil {
+			logName := fmt.Sprintf("%s-%d", name, i)
+			m.cleaner.RegisterLog(logName, partition)
+		}
 	}
 
 	m.topics[name] = topic
@@ -77,8 +277,12 @@ func (m *Manager) DeleteTopic(name string) error {
 		return fmt.Errorf("topic not found: %s", name)
 	}
 
-	// Close all partition logs
-	for _, partition := range topic.Partitions {
+	// Unregister from cleaner and close all partition logs
+	for partitionID, partition := range topic.Partitions {
+		if m.cleaner != nil {
+			logName := fmt.Sprintf("%s-%d", name, partitionID)
+			m.cleaner.UnregisterLog(logName)
+		}
 		if err := partition.Close(); err != nil {
 			return fmt.Errorf("close partition: %w", err)
 		}

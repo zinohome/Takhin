@@ -9,6 +9,7 @@ import (
 // FetchRequest represents a Fetch request
 type FetchRequest struct {
 	Header         *RequestHeader
+	ReplicaID      int32 // -1 for consumer, broker ID for follower fetch
 	MaxWaitMs      int32
 	MinBytes       int32
 	MaxBytes       int32
@@ -58,6 +59,13 @@ func DecodeFetchRequest(r io.Reader, header *RequestHeader) (*FetchRequest, erro
 	req := &FetchRequest{
 		Header: header,
 	}
+
+	// Read replica ID
+	replicaID, err := ReadInt32(r)
+	if err != nil {
+		return nil, err
+	}
+	req.ReplicaID = replicaID
 
 	// Read max wait ms
 	maxWaitMs, err := ReadInt32(r)

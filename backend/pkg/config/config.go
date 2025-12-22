@@ -15,11 +15,12 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	Server  ServerConfig  `koanf:"server"`
-	Kafka   KafkaConfig   `koanf:"kafka"`
-	Storage StorageConfig `koanf:"storage"`
-	Logging LoggingConfig `koanf:"logging"`
-	Metrics MetricsConfig `koanf:"metrics"`
+	Server      ServerConfig      `koanf:"server"`
+	Kafka       KafkaConfig       `koanf:"kafka"`
+	Storage     StorageConfig     `koanf:"storage"`
+	Replication ReplicationConfig `koanf:"replication"`
+	Logging     LoggingConfig     `koanf:"logging"`
+	Metrics     MetricsConfig     `koanf:"metrics"`
 }
 
 // ServerConfig holds server configuration
@@ -42,13 +43,24 @@ type KafkaConfig struct {
 
 // StorageConfig holds storage configuration
 type StorageConfig struct {
-	DataDir            string `koanf:"data.dir"`
-	LogSegmentSize     int64  `koanf:"log.segment.size"`
-	LogRetentionHours  int    `koanf:"log.retention.hours"`
-	LogRetentionBytes  int64  `koanf:"log.retention.bytes"`
-	LogCleanupInterval int    `koanf:"log.cleanup.interval.ms"`
-	LogFlushInterval   int    `koanf:"log.flush.interval.ms"`
-	LogFlushMessages   int    `koanf:"log.flush.messages"`
+	DataDir            string  `koanf:"data.dir"`
+	LogSegmentSize     int64   `koanf:"log.segment.size"`
+	LogRetentionHours  int     `koanf:"log.retention.hours"`
+	LogRetentionBytes  int64   `koanf:"log.retention.bytes"`
+	LogCleanupInterval int     `koanf:"log.cleanup.interval.ms"`
+	LogFlushInterval   int     `koanf:"log.flush.interval.ms"`
+	LogFlushMessages   int     `koanf:"log.flush.messages"`
+	CleanerEnabled     bool    `koanf:"cleaner.enabled"`
+	CompactionInterval int     `koanf:"compaction.interval.ms"`
+	MinCleanableRatio  float64 `koanf:"compaction.min.cleanable.ratio"`
+}
+
+// ReplicationConfig holds replication configuration
+type ReplicationConfig struct {
+	DefaultReplicationFactor int16 `koanf:"default.replication.factor"`
+	ReplicaLagTimeMaxMs      int64 `koanf:"replica.lag.time.max.ms"`
+	ReplicaFetchWaitMaxMs    int   `koanf:"replica.fetch.wait.max.ms"`
+	ReplicaFetchMaxBytes     int   `koanf:"replica.fetch.max.bytes"`
 }
 
 // LoggingConfig holds logging configuration
@@ -144,6 +156,27 @@ func setDefaults(cfg *Config) {
 	}
 	if cfg.Storage.LogFlushMessages == 0 {
 		cfg.Storage.LogFlushMessages = 10000
+	}
+	// Cleaner defaults
+	// CleanerEnabled defaults to false if not set (explicit opt-in)
+	if cfg.Storage.CompactionInterval == 0 {
+		cfg.Storage.CompactionInterval = 600000 // 10 minutes
+	}
+	if cfg.Storage.MinCleanableRatio == 0 {
+		cfg.Storage.MinCleanableRatio = 0.5 // 50%
+	}
+	// Replication defaults
+	if cfg.Replication.DefaultReplicationFactor == 0 {
+		cfg.Replication.DefaultReplicationFactor = 1 // Single replica by default
+	}
+	if cfg.Replication.ReplicaLagTimeMaxMs == 0 {
+		cfg.Replication.ReplicaLagTimeMaxMs = 10000 // 10 seconds
+	}
+	if cfg.Replication.ReplicaFetchWaitMaxMs == 0 {
+		cfg.Replication.ReplicaFetchWaitMaxMs = 500 // 500ms
+	}
+	if cfg.Replication.ReplicaFetchMaxBytes == 0 {
+		cfg.Replication.ReplicaFetchMaxBytes = 1048576 // 1MB
 	}
 
 	if cfg.Logging.Level == "" {
