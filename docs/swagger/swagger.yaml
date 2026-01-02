@@ -1,0 +1,489 @@
+basePath: /api
+definitions:
+  pkg_console.ComponentHealth:
+    properties:
+      details:
+        additionalProperties: true
+        type: object
+      message:
+        type: string
+      status:
+        $ref: '#/definitions/pkg_console.HealthStatus'
+    type: object
+  pkg_console.ConsumerGroupDetail:
+    properties:
+      groupId:
+        type: string
+      members:
+        items:
+          $ref: '#/definitions/pkg_console.ConsumerGroupMember'
+        type: array
+      offsetCommits:
+        items:
+          $ref: '#/definitions/pkg_console.ConsumerGroupOffsetCommit'
+        type: array
+      protocol:
+        type: string
+      protocolType:
+        type: string
+      state:
+        type: string
+    type: object
+  pkg_console.ConsumerGroupMember:
+    properties:
+      clientHost:
+        type: string
+      clientId:
+        type: string
+      memberId:
+        type: string
+      partitions:
+        items:
+          type: integer
+        type: array
+    type: object
+  pkg_console.ConsumerGroupOffsetCommit:
+    properties:
+      metadata:
+        type: string
+      offset:
+        type: integer
+      partition:
+        type: integer
+      topic:
+        type: string
+    type: object
+  pkg_console.ConsumerGroupSummary:
+    properties:
+      groupId:
+        type: string
+      members:
+        type: integer
+      state:
+        type: string
+    type: object
+  pkg_console.CreateTopicRequest:
+    properties:
+      name:
+        type: string
+      partitions:
+        type: integer
+    type: object
+  pkg_console.HealthCheck:
+    properties:
+      components:
+        additionalProperties:
+          $ref: '#/definitions/pkg_console.ComponentHealth'
+        type: object
+      status:
+        $ref: '#/definitions/pkg_console.HealthStatus'
+      system_info:
+        $ref: '#/definitions/pkg_console.SystemInfo'
+      timestamp:
+        type: string
+      uptime:
+        type: string
+      version:
+        type: string
+    type: object
+  pkg_console.HealthStatus:
+    enum:
+    - healthy
+    - degraded
+    - unhealthy
+    type: string
+    x-enum-varnames:
+    - HealthStatusHealthy
+    - HealthStatusDegraded
+    - HealthStatusUnhealthy
+  pkg_console.Message:
+    properties:
+      key:
+        type: string
+      offset:
+        type: integer
+      partition:
+        type: integer
+      timestamp:
+        type: integer
+      value:
+        type: string
+    type: object
+  pkg_console.PartitionInfo:
+    properties:
+      highWaterMark:
+        type: integer
+      id:
+        type: integer
+    type: object
+  pkg_console.ProduceMessageRequest:
+    properties:
+      key:
+        type: string
+      partition:
+        type: integer
+      value:
+        type: string
+    type: object
+  pkg_console.SystemInfo:
+    properties:
+      go_version:
+        type: string
+      memory_mb:
+        type: number
+      num_cpu:
+        type: integer
+      num_goroutines:
+        type: integer
+    type: object
+  pkg_console.TopicDetail:
+    properties:
+      name:
+        type: string
+      partitionCount:
+        type: integer
+      partitions:
+        items:
+          $ref: '#/definitions/pkg_console.PartitionInfo'
+        type: array
+    type: object
+  pkg_console.TopicSummary:
+    properties:
+      name:
+        type: string
+      partitionCount:
+        type: integer
+      partitions:
+        items:
+          $ref: '#/definitions/pkg_console.PartitionInfo'
+        type: array
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@takhin.io
+    name: Takhin Support
+    url: https://takhin.io/support
+  description: HTTP REST API for Takhin Console - manage topics, messages, and consumer
+    groups
+  license:
+    name: Business Source License 1.1
+    url: https://github.com/redpanda-data/redpanda/blob/dev/licenses/bsl.md
+  termsOfService: https://takhin.io/terms
+  title: Takhin Console API
+  version: "1.0"
+paths:
+  /consumer-groups:
+    get:
+      description: Get a list of all consumer groups with their status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/pkg_console.ConsumerGroupSummary'
+            type: array
+      security:
+      - ApiKeyAuth: []
+      summary: List all consumer groups
+      tags:
+      - Consumer Groups
+  /consumer-groups/{group}:
+    get:
+      description: Get detailed information about a specific consumer group
+      parameters:
+      - description: Consumer group ID
+        in: path
+        name: group
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pkg_console.ConsumerGroupDetail'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get consumer group details
+      tags:
+      - Consumer Groups
+  /health:
+    get:
+      description: Check comprehensive health status of all components
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pkg_console.HealthCheck'
+      summary: Health check
+      tags:
+      - Health
+  /health/live:
+    get:
+      description: Check if the service is alive (Kubernetes liveness probe)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: Liveness check
+      tags:
+      - Health
+  /health/ready:
+    get:
+      description: Check if the service is ready to accept traffic (Kubernetes readiness
+        probe)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: Readiness check
+      tags:
+      - Health
+  /topics:
+    get:
+      description: Get a list of all topics with their partition information
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/pkg_console.TopicSummary'
+            type: array
+      security:
+      - ApiKeyAuth: []
+      summary: List all topics
+      tags:
+      - Topics
+    post:
+      consumes:
+      - application/json
+      description: Create a new topic with the specified number of partitions
+      parameters:
+      - description: Topic creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/pkg_console.CreateTopicRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Create a new topic
+      tags:
+      - Topics
+  /topics/{topic}:
+    delete:
+      description: Delete a topic and all its data
+      parameters:
+      - description: Topic name
+        in: path
+        name: topic
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete a topic
+      tags:
+      - Topics
+    get:
+      description: Get detailed information about a specific topic
+      parameters:
+      - description: Topic name
+        in: path
+        name: topic
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pkg_console.TopicDetail'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get topic details
+      tags:
+      - Topics
+  /topics/{topic}/messages:
+    get:
+      description: Fetch messages from a specific topic partition
+      parameters:
+      - description: Topic name
+        in: path
+        name: topic
+        required: true
+        type: string
+      - description: Partition ID
+        in: query
+        name: partition
+        required: true
+        type: integer
+      - description: Starting offset
+        in: query
+        name: offset
+        required: true
+        type: integer
+      - default: 100
+        description: Maximum number of messages to return
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/pkg_console.Message'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get messages from a topic
+      tags:
+      - Messages
+    post:
+      consumes:
+      - application/json
+      description: Send a message to a specific topic partition
+      parameters:
+      - description: Topic name
+        in: path
+        name: topic
+        required: true
+        type: string
+      - description: Message to produce
+        in: body
+        name: message
+        required: true
+        schema:
+          $ref: '#/definitions/pkg_console.ProduceMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Produce a message to a topic
+      tags:
+      - Messages
+schemes:
+- http
+- https
+securityDefinitions:
+  ApiKeyAuth:
+    description: API Key authentication. Use 'your-api-key' or 'Bearer your-api-key'
+      format.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
+tags:
+- description: Topic management operations
+  name: Topics
+- description: Message produce and consume operations
+  name: Messages
+- description: Consumer group monitoring operations
+  name: Consumer Groups
+- description: Health check endpoints
+  name: Health
