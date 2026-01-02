@@ -9,6 +9,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/takhin-data/takhin/pkg/acl"
 	"github.com/takhin-data/takhin/pkg/config"
 	"github.com/takhin-data/takhin/pkg/coordinator"
 	"github.com/takhin-data/takhin/pkg/kafka/protocol"
@@ -28,6 +29,8 @@ type Handler struct {
 	txnCoordinator    *TransactionCoordinator
 	replicaAssigner   *replication.ReplicaAssigner // Replica assignment strategy
 	produceWaiter     *ProduceWaiter               // Waits for ISR acknowledgment
+	aclStore          *acl.Store                   // ACL storage
+	authorizer        *acl.Authorizer              // ACL authorizer
 }
 
 // New creates a new request handler with direct backend
@@ -37,6 +40,13 @@ func New(cfg *config.Config, topicMgr *topic.Manager) *Handler {
 
 	// Build broker list for replica assignment
 	brokers := buildBrokerList(cfg)
+
+	// Initialize ACL store and authorizer
+	aclStore := acl.NewStore(cfg.Storage.DataDir)
+	if err := aclStore.Load(); err != nil {
+		logger.Default().Error("failed to load ACLs", "error", err)
+	}
+	authorizer := acl.NewAuthorizer(aclStore, cfg.ACL.Enabled)
 
 	return &Handler{
 		config:            cfg,
@@ -48,6 +58,8 @@ func New(cfg *config.Config, topicMgr *topic.Manager) *Handler {
 		txnCoordinator:    NewTransactionCoordinator(),
 		replicaAssigner:   replication.NewReplicaAssigner(brokers),
 		produceWaiter:     NewProduceWaiter(),
+		aclStore:          aclStore,
+		authorizer:        authorizer,
 	}
 }
 
@@ -59,6 +71,13 @@ func NewWithBackend(cfg *config.Config, topicMgr *topic.Manager, backend Backend
 	// Build broker list for replica assignment
 	brokers := buildBrokerList(cfg)
 
+	// Initialize ACL store and authorizer
+	aclStore := acl.NewStore(cfg.Storage.DataDir)
+	if err := aclStore.Load(); err != nil {
+		logger.Default().Error("failed to load ACLs", "error", err)
+	}
+	authorizer := acl.NewAuthorizer(aclStore, cfg.ACL.Enabled)
+
 	return &Handler{
 		config:            cfg,
 		logger:            logger.Default().WithComponent("kafka-handler"),
@@ -69,6 +88,8 @@ func NewWithBackend(cfg *config.Config, topicMgr *topic.Manager, backend Backend
 		txnCoordinator:    NewTransactionCoordinator(),
 		replicaAssigner:   replication.NewReplicaAssigner(brokers),
 		produceWaiter:     NewProduceWaiter(),
+		aclStore:          aclStore,
+		authorizer:        authorizer,
 	}
 }
 
@@ -172,6 +193,12 @@ func (h *Handler) HandleRequest(reqData []byte) ([]byte, error) {
 		response, err = h.handleTxnOffsetCommit(r, header)
 	case protocol.AlterConfigsKey:
 		response, err = h.handleAlterConfigs(r, header)
+	case protocol.CreateAclsKey:
+		response, err = h.HandleCreateAcls(r, header.APIVersion)
+	case protocol.DescribeAclsKey:
+		response, err = h.HandleDescribeAcls(r, header.APIVersion)
+	case protocol.DeleteAclsKey:
+		response, err = h.HandleDeleteAcls(r, header.APIVersion)
 	default:
 		return nil, fmt.Errorf("unsupported API key: %d", header.APIKey)
 	}

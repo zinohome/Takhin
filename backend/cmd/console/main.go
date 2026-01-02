@@ -43,6 +43,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/takhin-data/takhin/pkg/acl"
 	"github.com/takhin-data/takhin/pkg/console"
 	"github.com/takhin-data/takhin/pkg/coordinator"
 	"github.com/takhin-data/takhin/pkg/logger"
@@ -79,6 +80,12 @@ func main() {
 	coord := coordinator.NewCoordinator()
 	coord.Start()
 
+	// Initialize ACL store
+	aclStore := acl.NewStore(*dataDir)
+	if err := aclStore.Load(); err != nil {
+		log.Error("failed to load ACLs", "error", err)
+	}
+
 	// Configure authentication
 	authConfig := console.AuthConfig{
 		Enabled: *enableAuth,
@@ -86,7 +93,7 @@ func main() {
 	}
 
 	// Create and start Console API server
-	server := console.NewServer(*apiAddr, topicManager, coord, authConfig)
+	server := console.NewServer(*apiAddr, topicManager, coord, aclStore, authConfig)
 
 	// Handle shutdown gracefully
 	go func() {

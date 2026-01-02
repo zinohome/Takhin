@@ -22,6 +22,7 @@ type Config struct {
 	Raft        RaftConfig        `koanf:"raft"`
 	Logging     LoggingConfig     `koanf:"logging"`
 	Metrics     MetricsConfig     `koanf:"metrics"`
+	ACL         ACLConfig         `koanf:"acl"`
 }
 
 // ServerConfig holds server configuration
@@ -103,6 +104,11 @@ type MetricsConfig struct {
 	Host    string `koanf:"host"`
 	Port    int    `koanf:"port"`
 	Path    string `koanf:"path"`
+}
+
+// ACLConfig holds ACL configuration
+type ACLConfig struct {
+	Enabled bool `koanf:"enabled"`
 }
 
 // Load loads configuration from file and environment variables
