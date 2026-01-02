@@ -5,6 +5,7 @@ import {
   DashboardOutlined,
   DatabaseOutlined,
   ClusterOutlined,
+  MessageOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
 } from '@ant-design/icons'
@@ -24,6 +25,11 @@ const items: MenuItem[] = [
     key: '/topics',
     icon: <DatabaseOutlined />,
     label: <Link to="/topics">Topics</Link>,
+  },
+  {
+    key: '/messages',
+    icon: <MessageOutlined />,
+    label: <Link to="/messages">Messages</Link>,
   },
   {
     key: '/brokers',

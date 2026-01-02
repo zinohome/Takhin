@@ -3,6 +3,7 @@ import MainLayout from './layouts/MainLayout'
 import Dashboard from './pages/Dashboard'
 import Topics from './pages/Topics'
 import Brokers from './pages/Brokers'
+import Messages from './pages/Messages'
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="topics" element={<Topics />} />
         <Route path="brokers" element={<Brokers />} />
+        <Route path="messages" element={<Messages />} />
       </Route>
     </Routes>
   )
