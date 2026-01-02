@@ -444,6 +444,18 @@ func (t *Topic) Read(partition int32, offset int64) (*log.Record, error) {
 	return log.Read(offset)
 }
 
+// ReadRange reads multiple records from the partition using zero-copy I/O.
+// Returns segment and position/size for zero-copy transfer.
+func (t *Topic) ReadRange(partition int32, offset int64, maxBytes int64) (*log.Segment, int64, int64, error) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	logInstance, exists := t.Partitions[partition]
+	if !exists {
+		return nil, 0, 0, fmt.Errorf("partition not found: %d", partition)
+	}
+	return logInstance.ReadRange(offset, maxBytes)
+}
+
 // HighWaterMark returns the high water mark for a partition
 func (t *Topic) HighWaterMark(partition int32) (int64, error) {
 	t.mu.RLock()

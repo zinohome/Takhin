@@ -130,7 +130,24 @@ func (s *Server) handleConnection(conn net.Conn) {
 			return
 		}
 
-		// Handle request
+		// Check if this is a Fetch request (API Key 1) for zero-copy optimization
+		// We need at least request header to determine the API key
+		if len(msgBuf) >= 8 {
+			apiKey := int16(msgBuf[0])<<8 | int16(msgBuf[1])
+			
+			// Fetch API key is 1
+			if apiKey == 1 {
+				// Try zero-copy path for Fetch requests
+				err := s.handler.HandleFetchZeroCopy(msgBuf, conn)
+				if err != nil {
+					s.logger.Error("failed to handle fetch with zero-copy", "error", err)
+					return
+				}
+				continue
+			}
+		}
+
+		// Handle request normally for non-Fetch requests
 		resp, err := s.handler.HandleRequest(msgBuf)
 		if err != nil {
 			s.logger.Error("failed to handle request", "error", err)
