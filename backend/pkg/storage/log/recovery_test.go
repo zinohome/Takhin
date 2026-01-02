@@ -16,11 +16,11 @@ import (
 
 func TestSegmentRecovery_ValidateData(t *testing.T) {
 	tests := []struct {
-		name           string
-		setupSegment   func(*testing.T, *Segment)
-		expectedCount  int64
-		expectError    bool
-		errorContains  string
+		name          string
+		setupSegment  func(*testing.T, *Segment)
+		expectedCount int64
+		expectError   bool
+		errorContains string
 	}{
 		{
 			name: "valid segment",
@@ -60,7 +60,7 @@ func TestSegmentRecovery_ValidateData(t *testing.T) {
 			},
 			expectedCount: 5,
 			expectError:   true, // EOF when trying to read data
-			errorContains: "", 
+			errorContains: "",
 		},
 		{
 			name: "empty segment",
@@ -425,7 +425,7 @@ func TestRecoverFromDirectory(t *testing.T) {
 			tt.setupDir(t, dir)
 
 			recoveredLog, err := RecoverFromDirectory(dir, 1024*1024)
-			
+
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
@@ -526,7 +526,7 @@ func TestSegmentRecovery_IncompleteRecordAtEnd(t *testing.T) {
 	// Recover
 	recovery := NewSegmentRecovery(segment)
 	count, err := recovery.ValidateData()
-	
+
 	// Should recover 5 records and detect corruption or EOF
 	assert.Equal(t, int64(5), count)
 	if err != nil {

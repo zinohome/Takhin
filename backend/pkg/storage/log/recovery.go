@@ -12,11 +12,11 @@ import (
 )
 
 var (
-	ErrCorruptedSegment    = errors.New("segment data is corrupted")
-	ErrCorruptedIndex      = errors.New("index is corrupted")
-	ErrCorruptedTimeIndex  = errors.New("time index is corrupted")
-	ErrIncompleteRecord    = errors.New("incomplete record found")
-	ErrIndexSizeMismatch   = errors.New("index size does not match data")
+	ErrCorruptedSegment   = errors.New("segment data is corrupted")
+	ErrCorruptedIndex     = errors.New("index is corrupted")
+	ErrCorruptedTimeIndex = errors.New("time index is corrupted")
+	ErrIncompleteRecord   = errors.New("incomplete record found")
+	ErrIndexSizeMismatch  = errors.New("index size does not match data")
 )
 
 // SegmentRecovery handles recovery operations for segments
@@ -254,12 +254,12 @@ func (sr *SegmentRecovery) VerifyConsistency() error {
 	}
 
 	if dataRecordCount != indexEntryCount {
-		return fmt.Errorf("%w: data has %d records but index has %d entries", 
+		return fmt.Errorf("%w: data has %d records but index has %d entries",
 			ErrIndexSizeMismatch, dataRecordCount, indexEntryCount)
 	}
 
 	if dataRecordCount != timeIndexEntryCount {
-		return fmt.Errorf("%w: data has %d records but time index has %d entries", 
+		return fmt.Errorf("%w: data has %d records but time index has %d entries",
 			ErrIndexSizeMismatch, dataRecordCount, timeIndexEntryCount)
 	}
 
@@ -334,7 +334,7 @@ func (lr *LogRecovery) RecoverLog() (*RecoveryResult, error) {
 	for i, segment := range lr.log.segments {
 		recovery := NewSegmentRecovery(segment)
 		result, err := recovery.Recover()
-		
+
 		if result != nil {
 			aggregateResult.RecordsRecovered += result.RecordsRecovered
 			aggregateResult.RecordsTruncated += result.RecordsTruncated
@@ -351,7 +351,7 @@ func (lr *LogRecovery) RecoverLog() (*RecoveryResult, error) {
 		}
 
 		if err != nil {
-			aggregateResult.Errors = append(aggregateResult.Errors, 
+			aggregateResult.Errors = append(aggregateResult.Errors,
 				fmt.Errorf("segment %d (base offset %d): %w", i, segment.BaseOffset(), err))
 		}
 	}
@@ -408,7 +408,7 @@ func RecoverFromDirectory(dir string, maxSegmentSize int64) (*Log, error) {
 		result, err := recovery.Recover()
 		if err != nil {
 			// Log error but continue with recovered data
-			fmt.Fprintf(os.Stderr, "Warning: segment %s recovery had errors: %v (recovered %d records)\n", 
+			fmt.Fprintf(os.Stderr, "Warning: segment %s recovery had errors: %v (recovered %d records)\n",
 				logFile, err, result.RecordsRecovered)
 		}
 
