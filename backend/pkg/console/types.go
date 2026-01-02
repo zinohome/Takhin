@@ -77,8 +77,16 @@ type ConsumerGroupMember struct {
 
 // ConsumerGroupOffsetCommit represents an offset commit for a consumer group
 type ConsumerGroupOffsetCommit struct {
-	Topic     string `json:"topic"`
-	Partition int32  `json:"partition"`
-	Offset    int64  `json:"offset"`
-	Metadata  string `json:"metadata"`
+	Topic          string `json:"topic"`
+	Partition      int32  `json:"partition"`
+	Offset         int64  `json:"offset"`
+	HighWaterMark  int64  `json:"highWaterMark"`
+	Lag            int64  `json:"lag"`
+	Metadata       string `json:"metadata"`
+}
+
+// ResetOffsetsRequest represents a request to reset consumer group offsets
+type ResetOffsetsRequest struct {
+	Strategy  string                       `json:"strategy"` // "earliest", "latest", or "specific"
+	Offsets   map[string]map[int32]int64   `json:"offsets,omitempty"` // For "specific" strategy
 }

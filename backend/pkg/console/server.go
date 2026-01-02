@@ -95,10 +95,11 @@ func (s *Server) setupRoutes() {
 		r.Post("/", s.handleProduceMessage)
 	})
 
-	// Consumer Group routes (placeholder)
+	// Consumer Group routes
 	s.router.Route("/api/consumer-groups", func(r chi.Router) {
 		r.Get("/", s.handleListConsumerGroups)
 		r.Get("/{group}", s.handleGetConsumerGroup)
+		r.Post("/{group}/reset-offsets", s.handleResetOffsets)
 	})
 }
 
@@ -503,15 +504,28 @@ func (s *Server) handleGetConsumerGroup(w http.ResponseWriter, r *http.Request) 
 		})
 	}
 
-	// Convert offsets
+	// Convert offsets with lag calculation
 	offsetCommits := make([]ConsumerGroupOffsetCommit, 0)
 	for topic, partitions := range group.OffsetCommits {
 		for partition, offset := range partitions {
+			// Calculate lag
+			hwm := int64(0)
+			lag := int64(0)
+			if topicObj, exists := s.topicManager.GetTopic(topic); exists {
+				hwm, _ = topicObj.HighWaterMark(partition)
+				lag = hwm - offset.Offset
+				if lag < 0 {
+					lag = 0
+				}
+			}
+
 			offsetCommits = append(offsetCommits, ConsumerGroupOffsetCommit{
-				Topic:     topic,
-				Partition: partition,
-				Offset:    offset.Offset,
-				Metadata:  offset.Metadata,
+				Topic:         topic,
+				Partition:     partition,
+				Offset:        offset.Offset,
+				HighWaterMark: hwm,
+				Lag:           lag,
+				Metadata:      offset.Metadata,
 			})
 		}
 	}
@@ -539,5 +553,84 @@ func (s *Server) respondJSON(w http.ResponseWriter, status int, data interface{}
 func (s *Server) respondError(w http.ResponseWriter, status int, message string) {
 	s.respondJSON(w, status, map[string]string{
 		"error": message,
+	})
+}
+
+// handleResetOffsets godoc
+// @Summary      Reset consumer group offsets
+// @Description  Reset offsets for a consumer group (group must be in Empty or Dead state)
+// @Tags         Consumer Groups
+// @Accept       json
+// @Produce      json
+// @Param        group    path      string               true  "Consumer group ID"
+// @Param        request  body      ResetOffsetsRequest  true  "Reset offsets request"
+// @Success      200      {object}  map[string]string
+// @Failure      400      {object}  map[string]string
+// @Failure      404      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Security     ApiKeyAuth
+// @Router       /consumer-groups/{group}/reset-offsets [post]
+func (s *Server) handleResetOffsets(w http.ResponseWriter, r *http.Request) {
+	groupID := chi.URLParam(r, "group")
+
+	var req ResetOffsetsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Validate strategy
+	if req.Strategy != "earliest" && req.Strategy != "latest" && req.Strategy != "specific" {
+		s.respondError(w, http.StatusBadRequest, "strategy must be 'earliest', 'latest', or 'specific'")
+		return
+	}
+
+	// Get group to validate it exists
+	_, exists := s.coordinator.GetGroup(groupID)
+	if !exists {
+		s.respondError(w, http.StatusNotFound, "consumer group not found: "+groupID)
+		return
+	}
+
+	// Calculate offsets based on strategy
+	offsets := make(map[string]map[int32]int64)
+	
+	if req.Strategy == "specific" {
+		if req.Offsets == nil {
+			s.respondError(w, http.StatusBadRequest, "offsets required for 'specific' strategy")
+			return
+		}
+		offsets = req.Offsets
+	} else {
+		// Get all topics and partitions for the group
+		topicPartitions := s.coordinator.GetGroupTopics(groupID)
+		
+		for topic, partitions := range topicPartitions {
+			offsets[topic] = make(map[int32]int64)
+			for _, partition := range partitions {
+				var offset int64
+				if req.Strategy == "earliest" {
+					offset = 0
+				} else if req.Strategy == "latest" {
+					// Get high water mark
+					if topicObj, exists := s.topicManager.GetTopic(topic); exists {
+						hwm, _ := topicObj.HighWaterMark(partition)
+						offset = hwm
+					}
+				}
+				offsets[topic][partition] = offset
+			}
+		}
+	}
+
+	// Reset offsets
+	if err := s.coordinator.ResetOffsets(groupID, offsets); err != nil {
+		s.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	s.respondJSON(w, http.StatusOK, map[string]string{
+		"message": "offsets reset successfully",
+		"group":   groupID,
 	})
 }

@@ -5,6 +5,7 @@ import {
   DashboardOutlined,
   DatabaseOutlined,
   ClusterOutlined,
+  TeamOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
 } from '@ant-design/icons'
@@ -26,6 +27,11 @@ const items: MenuItem[] = [
     label: <Link to="/topics">Topics</Link>,
   },
   {
+    key: '/consumer-groups',
+    icon: <TeamOutlined />,
+    label: <Link to="/consumer-groups">Consumer Groups</Link>,
+  },
+  {
     key: '/brokers',
     icon: <ClusterOutlined />,
     label: <Link to="/brokers">Brokers</Link>,
@@ -38,6 +44,14 @@ export default function MainLayout() {
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken()
+
+  // Determine selected key based on current path
+  const getSelectedKey = () => {
+    if (location.pathname.startsWith('/consumer-groups')) {
+      return '/consumer-groups'
+    }
+    return location.pathname
+  }
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -55,7 +69,7 @@ export default function MainLayout() {
         >
           {collapsed ? 'T' : 'Takhin'}
         </div>
-        <Menu theme="dark" mode="inline" selectedKeys={[location.pathname]} items={items} />
+        <Menu theme="dark" mode="inline" selectedKeys={[getSelectedKey()]} items={items} />
       </Sider>
       <Layout>
         <Header style={{ padding: 0, background: colorBgContainer }}>

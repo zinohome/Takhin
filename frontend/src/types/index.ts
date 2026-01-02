@@ -19,6 +19,42 @@ export interface Partition {
   isr: number[]
 }
 
+export interface ConsumerGroup {
+  groupId: string
+  state: string
+  members: number
+}
+
+export interface ConsumerGroupDetail {
+  groupId: string
+  state: string
+  protocolType: string
+  protocol: string
+  members: ConsumerGroupMember[]
+  offsetCommits: ConsumerGroupOffsetCommit[]
+}
+
+export interface ConsumerGroupMember {
+  memberId: string
+  clientId: string
+  clientHost: string
+  partitions: number[]
+}
+
+export interface ConsumerGroupOffsetCommit {
+  topic: string
+  partition: number
+  offset: number
+  highWaterMark: number
+  lag: number
+  metadata: string
+}
+
+export interface ResetOffsetsRequest {
+  strategy: 'earliest' | 'latest' | 'specific'
+  offsets?: Record<string, Record<number, number>>
+}
+
 export interface ApiResponse<T> {
   data: T
   message?: string
