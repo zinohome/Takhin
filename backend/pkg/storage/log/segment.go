@@ -237,6 +237,49 @@ func (s *Segment) Read(offset int64) (*Record, error) {
 	return record, nil
 }
 
+// ReadRange reads multiple records from startOffset up to maxBytes using zero-copy I/O.
+// Returns the position and size of the data in the file for zero-copy transfer.
+func (s *Segment) ReadRange(startOffset int64, maxBytes int64) (position int64, size int64, err error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if startOffset < s.baseOffset || startOffset >= s.nextOffset {
+		return 0, 0, fmt.Errorf("offset out of range: %d", startOffset)
+	}
+
+	position, err = s.findPosition(startOffset)
+	if err != nil {
+		return 0, 0, fmt.Errorf("find position: %w", err)
+	}
+
+	// Calculate the size of data we can read
+	stat, err := s.dataFile.Stat()
+	if err != nil {
+		return 0, 0, fmt.Errorf("stat file: %w", err)
+	}
+
+	fileSize := stat.Size()
+	remaining := fileSize - position
+
+	if remaining <= 0 {
+		return 0, 0, fmt.Errorf("no data available at offset %d", startOffset)
+	}
+
+	// Limit to maxBytes
+	size = remaining
+	if maxBytes > 0 && size > maxBytes {
+		size = maxBytes
+	}
+
+	return position, size, nil
+}
+
+// DataFile returns the underlying data file for zero-copy operations.
+// Caller must hold appropriate locks.
+func (s *Segment) DataFile() *os.File {
+	return s.dataFile
+}
+
 func (s *Segment) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

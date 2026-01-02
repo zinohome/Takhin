@@ -131,6 +131,25 @@ func (l *Log) Read(offset int64) (*Record, error) {
 	return segment.Read(offset)
 }
 
+// ReadRange reads multiple records from startOffset up to maxBytes.
+// Returns the segment and position/size for zero-copy transfer.
+func (l *Log) ReadRange(offset int64, maxBytes int64) (*Segment, int64, int64, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+
+	segment := l.findSegment(offset)
+	if segment == nil {
+		return nil, 0, 0, fmt.Errorf("offset not found: %d", offset)
+	}
+
+	position, size, err := segment.ReadRange(offset, maxBytes)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+
+	return segment, position, size, nil
+}
+
 func (l *Log) HighWaterMark() int64 {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
