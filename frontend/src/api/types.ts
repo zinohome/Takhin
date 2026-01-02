@@ -109,3 +109,67 @@ export interface GetMessagesParams {
   offset: number
   limit?: number
 }
+
+// Monitoring Types
+export interface MonitoringMetrics {
+  throughput: ThroughputMetrics
+  latency: LatencyMetrics
+  topicStats: TopicStats[]
+  consumerLags: ConsumerGroupLag[]
+  clusterHealth: ClusterHealthMetrics
+  timestamp: number
+}
+
+export interface ThroughputMetrics {
+  produceRate: number
+  fetchRate: number
+  produceBytes: number
+  fetchBytes: number
+}
+
+export interface LatencyMetrics {
+  produceP50: number
+  produceP95: number
+  produceP99: number
+  fetchP50: number
+  fetchP95: number
+  fetchP99: number
+}
+
+export interface TopicStats {
+  name: string
+  partitions: number
+  totalMessages: number
+  totalBytes: number
+  produceRate: number
+  fetchRate: number
+}
+
+export interface ConsumerGroupLag {
+  groupId: string
+  totalLag: number
+  topicLags: TopicLag[]
+}
+
+export interface TopicLag {
+  topic: string
+  totalLag: number
+  partitionLags: PartitionLag[]
+}
+
+export interface PartitionLag {
+  partition: number
+  currentOffset: number
+  logEndOffset: number
+  lag: number
+}
+
+export interface ClusterHealthMetrics {
+  activeConnections: number
+  totalTopics: number
+  totalPartitions: number
+  totalConsumers: number
+  diskUsageBytes: number
+  memoryUsageBytes: number
+  goroutineCount: number
+}

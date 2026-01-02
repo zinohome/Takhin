@@ -14,6 +14,7 @@ import type {
   ConsumerGroupSummary,
   ConsumerGroupDetail,
   GetMessagesParams,
+  MonitoringMetrics,
 } from './types'
 
 export class TakhinApiClient {
@@ -186,6 +187,54 @@ export class TakhinApiClient {
     } catch (error) {
       throw handleApiError(error)
     }
+  }
+
+  // Monitoring Endpoints
+
+  async getMonitoringMetrics(): Promise<MonitoringMetrics> {
+    try {
+      const response = await this.client.get<MonitoringMetrics>('/monitoring/metrics')
+      return response.data
+    } catch (error) {
+      throw handleApiError(error)
+    }
+  }
+
+  connectMonitoringWebSocket(
+    onMessage: (metrics: MonitoringMetrics) => void,
+    onError?: (error: Event) => void,
+    onClose?: () => void
+  ): WebSocket {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const host = window.location.host
+    const wsUrl = `${protocol}//${host}/api/monitoring/ws`
+
+    const ws = new WebSocket(wsUrl)
+
+    ws.onopen = () => {
+      console.log('WebSocket connected')
+    }
+
+    ws.onmessage = (event) => {
+      try {
+        const metrics = JSON.parse(event.data) as MonitoringMetrics
+        onMessage(metrics)
+      } catch (error) {
+        console.error('Failed to parse WebSocket message:', error)
+      }
+    }
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error)
+      if (onError) onError(error)
+    }
+
+    ws.onclose = () => {
+      console.log('WebSocket disconnected')
+      if (onClose) onClose()
+    }
+
+    return ws
   }
 
   // Custom request method for advanced use cases

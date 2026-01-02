@@ -95,10 +95,16 @@ func (s *Server) setupRoutes() {
 		r.Post("/", s.handleProduceMessage)
 	})
 
-	// Consumer Group routes (placeholder)
+	// Consumer Group routes
 	s.router.Route("/api/consumer-groups", func(r chi.Router) {
 		r.Get("/", s.handleListConsumerGroups)
 		r.Get("/{group}", s.handleGetConsumerGroup)
+	})
+
+	// Monitoring routes
+	s.router.Route("/api/monitoring", func(r chi.Router) {
+		r.Get("/metrics", s.handleMonitoringMetrics)
+		r.Get("/ws", s.handleMonitoringWebSocket)
 	})
 }
 
