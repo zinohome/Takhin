@@ -4,6 +4,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"time"
@@ -26,6 +27,7 @@ type Handler struct {
 	producerIDManager *ProducerIDManager
 	txnCoordinator    *TransactionCoordinator
 	replicaAssigner   *replication.ReplicaAssigner // Replica assignment strategy
+	produceWaiter     *ProduceWaiter               // Waits for ISR acknowledgment
 }
 
 // New creates a new request handler with direct backend
@@ -45,6 +47,7 @@ func New(cfg *config.Config, topicMgr *topic.Manager) *Handler {
 		producerIDManager: NewProducerIDManager(),
 		txnCoordinator:    NewTransactionCoordinator(),
 		replicaAssigner:   replication.NewReplicaAssigner(brokers),
+		produceWaiter:     NewProduceWaiter(),
 	}
 }
 
@@ -65,7 +68,16 @@ func NewWithBackend(cfg *config.Config, topicMgr *topic.Manager, backend Backend
 		producerIDManager: NewProducerIDManager(),
 		txnCoordinator:    NewTransactionCoordinator(),
 		replicaAssigner:   replication.NewReplicaAssigner(brokers),
+		produceWaiter:     NewProduceWaiter(),
 	}
+}
+
+// Close cleans up resources held by the handler
+func (h *Handler) Close() error {
+	if h.produceWaiter != nil {
+		h.produceWaiter.Close()
+	}
+	return nil
 }
 
 // buildBrokerList constructs the broker list for replica assignment
@@ -378,15 +390,41 @@ func (h *Handler) handleProduce(r io.Reader, header *protocol.RequestHeader) ([]
 						"isr", isr,
 					)
 
-					// For single-broker setup, ISR check is satisfied immediately
-					// In multi-broker, we would wait for follower acknowledgments here
-					if isrSize < int(topic.ReplicationFactor) {
-						h.logger.Warn("isr size below replication factor",
+					// Check min ISR requirement (default to 1)
+					minISR := 1
+					if isrSize < minISR {
+						partResp.ErrorCode = protocol.NotEnoughReplicas
+						h.logger.Warn("not enough replicas in ISR",
 							"topic", topicData.TopicName,
 							"partition", partData.PartitionIndex,
 							"isr_size", isrSize,
-							"replication_factor", topic.ReplicationFactor,
+							"min_isr", minISR,
 						)
+					} else {
+						// Wait for ISR acknowledgment
+						timeout := time.Duration(req.TimeoutMs) * time.Millisecond
+						if timeout == 0 {
+							timeout = 30 * time.Second // default timeout
+						}
+
+						ctx := context.Background()
+						err := h.produceWaiter.WaitForAck(ctx, topicData.TopicName, partData.PartitionIndex, offset, req.Acks, timeout)
+						if err != nil {
+							// Timeout or error
+							partResp.ErrorCode = protocol.RequestTimeout
+							h.logger.Error("wait for ISR ack failed",
+								"error", err,
+								"topic", topicData.TopicName,
+								"partition", partData.PartitionIndex,
+								"offset", offset,
+							)
+						} else {
+							h.logger.Debug("ISR acknowledgment received",
+								"topic", topicData.TopicName,
+								"partition", partData.PartitionIndex,
+								"offset", offset,
+							)
+						}
 					}
 				}
 			}
@@ -486,6 +524,17 @@ func (h *Handler) handleFetch(r io.Reader, header *protocol.RequestHeader) ([]by
 					"follower_leo", followerLEO,
 					"leader_leo", leaderLEO,
 					"isr", newISR,
+				)
+
+				// Notify any waiting produce requests that HWM may have advanced
+				// HWM is the minimum LEO among all ISR members
+				currentHWM := topic.GetHWM(partReq.PartitionIndex)
+				h.produceWaiter.NotifyHWMAdvanced(topicReq.TopicName, partReq.PartitionIndex, currentHWM)
+
+				h.logger.Debug("notified HWM advancement",
+					"topic", topicReq.TopicName,
+					"partition", partReq.PartitionIndex,
+					"hwm", currentHWM,
 				)
 			}
 
