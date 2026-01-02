@@ -36,8 +36,13 @@ Takhin 包含两个核心组件：
 
 ### 前置要求
 
+**Backend:**
 - Go 1.23 或更高版本
 - Task（任务运行器）
+
+**Frontend:**
+- Node.js >= 18.0.0
+- npm >= 9.0.0
 
 ### 安装 Task
 
@@ -51,6 +56,8 @@ sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/b
 
 ### 构建和运行
 
+**Backend:**
+
 ```bash
 # 设置开发环境
 task dev:setup
@@ -63,6 +70,28 @@ task backend:test
 
 # 运行服务
 task backend:run
+```
+
+**Frontend:**
+
+```bash
+# 安装依赖
+task frontend:deps
+
+# 开发模式（http://localhost:3000）
+task frontend:dev
+
+# 生产构建
+task frontend:build
+
+# 预览生产构建
+task frontend:preview
+```
+
+**同时运行前后端:**
+
+```bash
+task dev:all
 ```
 
 ### 使用 Docker
@@ -95,7 +124,16 @@ Takhin/
 │   ├── pkg/             # 可复用的包
 │   ├── internal/        # 私有代码
 │   └── configs/         # 配置文件
-├── frontend/            # Takhin Console (React)
+├── frontend/            # Takhin Console (React + TypeScript)
+│   ├── src/             # 源代码
+│   │   ├── api/        # API 客户端
+│   │   ├── components/ # React 组件
+│   │   ├── layouts/    # 布局组件
+│   │   ├── pages/      # 页面组件
+│   │   ├── types/      # TypeScript 类型
+│   │   └── utils/      # 工具函数
+│   ├── public/          # 静态资源
+│   └── README.md        # 前端文档
 ├── docs/                # 文档
 ├── projects/            # 参考项目
 └── Taskfile.yaml        # 任务定义
@@ -116,8 +154,34 @@ task backend:coverage
 
 ### 代码检查
 
+**Backend:**
+
 ```bash
 # 格式化代码
+task backend:fmt
+
+# 运行 linter
+task backend:lint
+
+# 运行所有检查
+task dev:check
+```
+
+**Frontend:**
+
+```bash
+# 格式化代码
+task frontend:format
+
+# 运行 linter
+task frontend:lint
+
+# 修复 lint 问题
+task frontend:lint:fix
+
+# TypeScript 类型检查
+task frontend:type-check
+```
 task backend:fmt
 
 # 运行 linter

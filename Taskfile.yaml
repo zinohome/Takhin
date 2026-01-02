@@ -3,6 +3,7 @@ version: '3'
 # Global variables
 vars:
   BACKEND_DIR: backend
+  FRONTEND_DIR: frontend
   BINARY_NAME: takhin
   BUILD_DIR: build
 
@@ -74,6 +75,70 @@ tasks:
       - rm -rf {{.BUILD_DIR}}/{{.BINARY_NAME}}
       - rm -rf {{.BACKEND_DIR}}/coverage.out
 
+  # Frontend tasks
+  frontend:deps:
+    desc: Install frontend dependencies
+    dir: '{{.FRONTEND_DIR}}'
+    cmds:
+      - npm install
+
+  frontend:dev:
+    desc: Run frontend development server
+    dir: '{{.FRONTEND_DIR}}'
+    deps: [frontend:deps]
+    cmds:
+      - npm run dev
+
+  frontend:build:
+    desc: Build frontend for production
+    dir: '{{.FRONTEND_DIR}}'
+    deps: [frontend:deps]
+    cmds:
+      - npm run build
+
+  frontend:preview:
+    desc: Preview frontend production build
+    dir: '{{.FRONTEND_DIR}}'
+    deps: [frontend:build]
+    cmds:
+      - npm run preview
+
+  frontend:lint:
+    desc: Run frontend linter
+    dir: '{{.FRONTEND_DIR}}'
+    cmds:
+      - npm run lint
+
+  frontend:lint:fix:
+    desc: Fix frontend linting issues
+    dir: '{{.FRONTEND_DIR}}'
+    cmds:
+      - npm run lint:fix
+
+  frontend:format:
+    desc: Format frontend code
+    dir: '{{.FRONTEND_DIR}}'
+    cmds:
+      - npm run format
+
+  frontend:format:check:
+    desc: Check frontend code formatting
+    dir: '{{.FRONTEND_DIR}}'
+    cmds:
+      - npm run format:check
+
+  frontend:type-check:
+    desc: Run TypeScript type checking
+    dir: '{{.FRONTEND_DIR}}'
+    cmds:
+      - npm run type-check
+
+  frontend:clean:
+    desc: Clean frontend build artifacts
+    cmds:
+      - rm -rf {{.FRONTEND_DIR}}/dist
+      - rm -rf {{.FRONTEND_DIR}}/node_modules
+
   # Docker tasks
   docker:build:
     desc: Build Docker image
@@ -91,6 +156,7 @@ tasks:
     desc: Setup development environment
     cmds:
       - task: backend:deps
+      - task: frontend:deps
       - echo "Development environment setup complete"
 
   dev:check:
@@ -99,12 +165,22 @@ tasks:
       - task: backend:fmt
       - task: backend:lint
       - task: backend:test
+      - task: frontend:lint:fix
+      - task: frontend:format
+      - task: frontend:type-check
+
+  dev:all:
+    desc: Run backend and frontend together
+    cmds:
+      - task: backend:run &
+      - task: frontend:dev
 
   # Clean all
   clean:
     desc: Clean all build artifacts
     cmds:
       - task: backend:clean
+      - task: frontend:clean
       - rm -rf {{.BUILD_DIR}}
 
   # Help
