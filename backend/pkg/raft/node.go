@@ -12,7 +12,9 @@ import (
 
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb/v2"
+	"github.com/takhin-data/takhin/pkg/config"
 	"github.com/takhin-data/takhin/pkg/logger"
+	"github.com/takhin-data/takhin/pkg/metrics"
 	"github.com/takhin-data/takhin/pkg/storage/topic"
 )
 
@@ -26,6 +28,9 @@ type Node struct {
 	stableStore   *raftboltdb.BoltStore
 	snapshotStore raft.SnapshotStore
 	logger        *logger.Logger
+	notifyCh      chan bool
+	lastState     raft.RaftState
+	electionStart time.Time
 }
 
 // Config holds the configuration for a Raft node
@@ -35,6 +40,7 @@ type Config struct {
 	RaftBind  string
 	Bootstrap bool
 	Peers     []string
+	RaftCfg   *config.RaftConfig
 }
 
 // NewNode creates a new Raft node
@@ -50,6 +56,25 @@ func NewNode(cfg *Config, topicManager *topic.Manager) (*Node, error) {
 	// Setup Raft configuration
 	raftConfig := raft.DefaultConfig()
 	raftConfig.LocalID = raft.ServerID(cfg.NodeID)
+
+	// Apply optimized election settings from config
+	if cfg.RaftCfg != nil {
+		raftConfig.HeartbeatTimeout = time.Duration(cfg.RaftCfg.HeartbeatTimeoutMs) * time.Millisecond
+		raftConfig.ElectionTimeout = time.Duration(cfg.RaftCfg.ElectionTimeoutMs) * time.Millisecond
+		raftConfig.LeaderLeaseTimeout = time.Duration(cfg.RaftCfg.LeaderLeaseTimeoutMs) * time.Millisecond
+		raftConfig.CommitTimeout = time.Duration(cfg.RaftCfg.CommitTimeoutMs) * time.Millisecond
+		raftConfig.SnapshotInterval = time.Duration(cfg.RaftCfg.SnapshotIntervalMs) * time.Millisecond
+		raftConfig.SnapshotThreshold = uint64(cfg.RaftCfg.SnapshotThreshold)
+		raftConfig.MaxAppendEntries = cfg.RaftCfg.MaxAppendEntries
+
+		// Enable PreVote to reduce unnecessary elections
+		// PreVoteDisabled=false means PreVote is enabled
+		raftConfig.PreVoteDisabled = !cfg.RaftCfg.PreVoteEnabled
+	}
+
+	// Create notification channel for leadership changes
+	notifyCh := make(chan bool, 10)
+	raftConfig.NotifyCh = notifyCh
 
 	// Create logger
 	log := logger.Default().WithComponent("raft")
@@ -108,7 +133,12 @@ func NewNode(cfg *Config, topicManager *topic.Manager) (*Node, error) {
 		stableStore:   stableStore,
 		snapshotStore: snapshotStore,
 		logger:        log,
+		notifyCh:      notifyCh,
+		lastState:     raft.Follower,
 	}
+
+	// Start monitoring leadership changes in background
+	go node.monitorLeadership()
 
 	// Bootstrap cluster if needed
 	if cfg.Bootstrap {
@@ -211,6 +241,64 @@ func (n *Node) RemoveServer(id string) error {
 // Stats returns Raft stats
 func (n *Node) Stats() map[string]string {
 	return n.raft.Stats()
+}
+
+// monitorLeadership monitors leadership changes and updates metrics
+func (n *Node) monitorLeadership() {
+	for isLeader := range n.notifyCh {
+		currentState := n.raft.State()
+
+		// Track state transitions
+		if currentState != n.lastState {
+			// Update state gauge
+			switch currentState {
+			case raft.Follower:
+				metrics.RaftState.Set(0)
+			case raft.Candidate:
+				metrics.RaftState.Set(1)
+				// Track election start
+				n.electionStart = time.Now()
+				metrics.RaftElectionsTotal.Inc()
+				n.logger.Info("starting leader election")
+			case raft.Leader:
+				metrics.RaftState.Set(2)
+				// Track election duration if we were candidate
+				if n.lastState == raft.Candidate && !n.electionStart.IsZero() {
+					duration := time.Since(n.electionStart).Seconds()
+					metrics.RaftElectionDuration.Observe(duration)
+					n.logger.Info("leader election completed", "duration_seconds", duration)
+				}
+			}
+
+			// Track leader changes
+			if (n.lastState == raft.Leader && currentState != raft.Leader) ||
+				(n.lastState != raft.Leader && currentState == raft.Leader) {
+				metrics.RaftLeaderChanges.Inc()
+				n.logger.Info("leadership changed",
+					"from", n.lastState.String(),
+					"to", currentState.String(),
+					"is_leader", isLeader)
+			}
+
+			n.lastState = currentState
+		}
+	}
+}
+
+// GetElectionTimeout returns the configured election timeout
+func (n *Node) GetElectionTimeout() time.Duration {
+	if n.config.RaftCfg != nil {
+		return time.Duration(n.config.RaftCfg.ElectionTimeoutMs) * time.Millisecond
+	}
+	return 3 * time.Second // default
+}
+
+// GetHeartbeatTimeout returns the configured heartbeat timeout
+func (n *Node) GetHeartbeatTimeout() time.Duration {
+	if n.config.RaftCfg != nil {
+		return time.Duration(n.config.RaftCfg.HeartbeatTimeoutMs) * time.Millisecond
+	}
+	return 1 * time.Second // default
 }
 
 // Shutdown closes the Raft node

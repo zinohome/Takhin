@@ -377,6 +377,50 @@ var (
 		},
 		[]string{"type"},
 	)
+
+	// Raft election metrics
+	RaftElectionsTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "takhin_raft_elections_total",
+			Help: "Total number of leader elections initiated",
+		},
+	)
+
+	RaftElectionDuration = promauto.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "takhin_raft_election_duration_seconds",
+			Help:    "Duration of leader elections in seconds",
+			Buckets: []float64{0.1, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0},
+		},
+	)
+
+	RaftLeaderChanges = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "takhin_raft_leader_changes_total",
+			Help: "Total number of leader changes",
+		},
+	)
+
+	RaftState = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "takhin_raft_state",
+			Help: "Current Raft state (0=follower, 1=candidate, 2=leader)",
+		},
+	)
+
+	RaftPreVoteRequestsTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "takhin_raft_prevote_requests_total",
+			Help: "Total number of PreVote requests sent",
+		},
+	)
+
+	RaftPreVoteGrantedTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "takhin_raft_prevote_granted_total",
+			Help: "Total number of PreVote requests granted",
+		},
+	)
 )
 
 type Server struct {

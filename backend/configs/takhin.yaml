@@ -87,6 +87,38 @@ replication:
       max:
         bytes: 1048576    # 1MB - max bytes per follower fetch
 
+# Raft Consensus Configuration (Leader Election Optimization)
+raft:
+  # Heartbeat and Election Timeouts (optimized for fast elections)
+  heartbeat:
+    timeout:
+      ms: 1000            # 1 second - time without leader contact before election
+  election:
+    timeout:
+      ms: 3000            # 3 seconds - max election duration (target < 5s)
+  leader:
+    lease:
+      timeout:
+        ms: 500           # 500ms - leader lease timeout
+  commit:
+    timeout:
+      ms: 50              # 50ms - commit timeout for log replication
+  
+  # Snapshot Configuration
+  snapshot:
+    interval:
+      ms: 120000          # 2 minutes - snapshot interval
+    threshold: 8192       # Number of logs before snapshot
+  
+  # PreVote Configuration (reduces unnecessary elections)
+  prevote:
+    enabled: true         # Enable PreVote to avoid election storms
+  
+  # Append Entries Configuration
+  max:
+    append:
+      entries: 64         # Max entries per AppendEntries RPC
+
 # Logging Configuration
 logging:
   level: "info"     # debug, info, warn, error
