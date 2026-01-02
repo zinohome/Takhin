@@ -1,35 +1,5 @@
-import axios from 'axios'
-
-const apiClient = axios.create({
-  baseURL: '/api',
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-})
-
-apiClient.interceptors.request.use(
-  config => {
-    const token = localStorage.getItem('api_token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  error => {
-    return Promise.reject(error)
-  }
-)
-
-apiClient.interceptors.response.use(
-  response => response,
-  error => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('api_token')
-      window.location.href = '/login'
-    }
-    return Promise.reject(error)
-  }
-)
-
-export default apiClient
+// Re-export the main API client for backwards compatibility
+export { takhinApi as default, takhinApi, TakhinApiClient } from './takhinApi'
+export { authService } from './auth'
+export { TakhinApiError, handleApiError } from './errors'
+export * from './types'
