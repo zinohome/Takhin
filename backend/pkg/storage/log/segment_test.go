@@ -1,8 +1,8 @@
 package log
 
 import (
-"testing"
-"time"
+	"testing"
+	"time"
 )
 
 func TestSegmentAppend(t *testing.T) {

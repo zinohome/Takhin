@@ -53,7 +53,7 @@ func main() {
 	for _, segInfo := range segments {
 		indexPath := filepath.Join(dataDir, fmt.Sprintf("%020d.index", segInfo.BaseOffset))
 		timeIndexPath := filepath.Join(dataDir, fmt.Sprintf("%020d.timeindex", segInfo.BaseOffset))
-		
+
 		// Truncate indexes to simulate corruption
 		if err := os.Truncate(indexPath, 0); err != nil {
 			log.Printf("  Warning: Failed to truncate %s: %v", indexPath, err)

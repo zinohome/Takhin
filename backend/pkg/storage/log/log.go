@@ -4,6 +4,7 @@ package log
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -29,6 +30,12 @@ func NewLog(config LogConfig) (*Log, error) {
 		segments:       make([]*Segment, 0),
 	}
 
+	// Try to load existing segments from disk
+	if err := log.loadExistingSegments(); err != nil {
+		return nil, fmt.Errorf("load existing segments: %w", err)
+	}
+
+	// If no segments exist, create a new one
 	if len(log.segments) == 0 {
 		if err := log.newSegment(0); err != nil {
 			return nil, fmt.Errorf("create initial segment: %w", err)
@@ -36,6 +43,57 @@ func NewLog(config LogConfig) (*Log, error) {
 	}
 
 	return log, nil
+}
+
+// loadExistingSegments loads segments from disk
+func (l *Log) loadExistingSegments() error {
+	entries, err := os.ReadDir(l.dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("read directory: %w", err)
+	}
+
+	// Find all .log files and extract base offsets
+	segmentOffsets := make([]int64, 0)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if len(name) >= 24 && name[len(name)-4:] == ".log" {
+			var offset int64
+			if _, err := fmt.Sscanf(name, "%020d.log", &offset); err == nil {
+				segmentOffsets = append(segmentOffsets, offset)
+			}
+		}
+	}
+
+	// Sort offsets
+	sort.Slice(segmentOffsets, func(i, j int) bool {
+		return segmentOffsets[i] < segmentOffsets[j]
+	})
+
+	// Load each segment
+	for _, offset := range segmentOffsets {
+		segment, err := NewSegment(SegmentConfig{
+			BaseOffset: offset,
+			MaxBytes:   l.maxSegmentSize,
+			Dir:        l.dir,
+		})
+		if err != nil {
+			return fmt.Errorf("load segment at offset %d: %w", offset, err)
+		}
+		l.segments = append(l.segments, segment)
+	}
+
+	// Set active segment to the last one
+	if len(l.segments) > 0 {
+		l.activeSegment = l.segments[len(l.segments)-1]
+	}
+
+	return nil
 }
 
 func (l *Log) Append(key, value []byte) (int64, error) {
