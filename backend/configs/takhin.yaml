@@ -6,6 +6,28 @@
 server:
   host: "0.0.0.0"
   port: 9092
+  
+  # TLS/SSL Configuration
+  tls:
+    enabled: false                    # Enable TLS encryption
+    cert:
+      file: ""                        # Path to server certificate (required if TLS enabled)
+    key:
+      file: ""                        # Path to server private key (required if TLS enabled)
+    ca:
+      file: ""                        # Path to CA certificate (for client verification)
+    client:
+      auth: "none"                    # Client authentication: none, request, require
+    verify:
+      client:
+        cert: false                   # Verify client certificates (mTLS)
+    min:
+      version: "TLS1.2"               # Minimum TLS version: TLS1.0, TLS1.1, TLS1.2, TLS1.3
+    cipher:
+      suites: []                      # Custom cipher suites (empty = use defaults)
+    prefer:
+      server:
+        cipher: false                 # Prefer server cipher suites
 
 # Kafka Protocol Configuration
 kafka:

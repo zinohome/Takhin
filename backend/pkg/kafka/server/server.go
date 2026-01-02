@@ -4,6 +4,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	"github.com/takhin-data/takhin/pkg/kafka/handler"
 	"github.com/takhin-data/takhin/pkg/logger"
 	"github.com/takhin-data/takhin/pkg/storage/topic"
+	tlsutil "github.com/takhin-data/takhin/pkg/tls"
 )
 
 // Server represents a Kafka protocol server
@@ -40,13 +42,31 @@ func New(cfg *config.Config, topicMgr *topic.Manager) *Server {
 // Start starts the Kafka server
 func (s *Server) Start() error {
 	addr := fmt.Sprintf("%s:%d", s.config.Kafka.AdvertisedHost, s.config.Kafka.AdvertisedPort)
-	listener, err := net.Listen("tcp", addr)
-	if err != nil {
-		return fmt.Errorf("failed to listen on %s: %w", addr, err)
+	
+	var listener net.Listener
+	var err error
+
+	// Check if TLS is enabled
+	if s.config.Server.TLS.Enabled {
+		tlsConfig, err := tlsutil.LoadTLSConfig(&s.config.Server.TLS)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS config: %w", err)
+		}
+
+		listener, err = tls.Listen("tcp", addr, tlsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to listen on %s with TLS: %w", addr, err)
+		}
+		s.logger.Info("kafka server started with TLS", "address", addr, "client_auth", s.config.Server.TLS.ClientAuth)
+	} else {
+		listener, err = net.Listen("tcp", addr)
+		if err != nil {
+			return fmt.Errorf("failed to listen on %s: %w", addr, err)
+		}
+		s.logger.Info("kafka server started", "address", addr)
 	}
 
 	s.listener = listener
-	s.logger.Info("kafka server started", "address", addr)
 
 	s.wg.Add(1)
 	go func() {

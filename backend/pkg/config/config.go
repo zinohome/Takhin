@@ -26,8 +26,22 @@ type Config struct {
 
 // ServerConfig holds server configuration
 type ServerConfig struct {
-	Host string `koanf:"host"`
-	Port int    `koanf:"port"`
+	Host string    `koanf:"host"`
+	Port int       `koanf:"port"`
+	TLS  TLSConfig `koanf:"tls"`
+}
+
+// TLSConfig holds TLS/SSL configuration
+type TLSConfig struct {
+	Enabled            bool     `koanf:"enabled"`
+	CertFile           string   `koanf:"cert.file"`
+	KeyFile            string   `koanf:"key.file"`
+	CAFile             string   `koanf:"ca.file"`
+	ClientAuth         string   `koanf:"client.auth"`         // none, request, require
+	VerifyClientCert   bool     `koanf:"verify.client.cert"`  // For mTLS
+	MinVersion         string   `koanf:"min.version"`         // TLS1.2, TLS1.3
+	CipherSuites       []string `koanf:"cipher.suites"`
+	PreferServerCipher bool     `koanf:"prefer.server.cipher"`
 }
 
 // KafkaConfig holds Kafka protocol configuration
@@ -231,6 +245,14 @@ func setDefaults(cfg *Config) {
 	if cfg.Metrics.Port == 0 {
 		cfg.Metrics.Port = 9090
 	}
+
+	// TLS defaults
+	if cfg.Server.TLS.ClientAuth == "" {
+		cfg.Server.TLS.ClientAuth = "none"
+	}
+	if cfg.Server.TLS.MinVersion == "" {
+		cfg.Server.TLS.MinVersion = "TLS1.2"
+	}
 }
 
 func validate(cfg *Config) error {
@@ -283,6 +305,40 @@ func validate(cfg *Config) error {
 	}
 	if !validLevels[cfg.Logging.Level] {
 		return fmt.Errorf("invalid log level: %s", cfg.Logging.Level)
+	}
+
+	// Validate TLS configuration
+	if cfg.Server.TLS.Enabled {
+		if cfg.Server.TLS.CertFile == "" {
+			return fmt.Errorf("TLS cert file is required when TLS is enabled")
+		}
+		if cfg.Server.TLS.KeyFile == "" {
+			return fmt.Errorf("TLS key file is required when TLS is enabled")
+		}
+
+		validClientAuth := map[string]bool{
+			"none":    true,
+			"request": true,
+			"require": true,
+		}
+		if !validClientAuth[cfg.Server.TLS.ClientAuth] {
+			return fmt.Errorf("invalid client auth mode: %s (must be none, request, or require)", cfg.Server.TLS.ClientAuth)
+		}
+
+		validMinVersion := map[string]bool{
+			"TLS1.0": true,
+			"TLS1.1": true,
+			"TLS1.2": true,
+			"TLS1.3": true,
+		}
+		if !validMinVersion[cfg.Server.TLS.MinVersion] {
+			return fmt.Errorf("invalid TLS min version: %s", cfg.Server.TLS.MinVersion)
+		}
+
+		// If client auth is required or client cert verification is enabled, CA file is required
+		if (cfg.Server.TLS.ClientAuth == "require" || cfg.Server.TLS.VerifyClientCert) && cfg.Server.TLS.CAFile == "" {
+			return fmt.Errorf("CA file is required when client authentication is required or client cert verification is enabled")
+		}
 	}
 
 	return nil
