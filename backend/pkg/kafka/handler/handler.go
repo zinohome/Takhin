@@ -411,7 +411,7 @@ func (h *Handler) handleProduce(r io.Reader, header *protocol.RequestHeader) ([]
 						err := h.produceWaiter.WaitForAck(ctx, topicData.TopicName, partData.PartitionIndex, offset, req.Acks, timeout)
 						if err != nil {
 							// Timeout or error
-							partResp.ErrorCode = protocol.RequestTimeout
+							partResp.ErrorCode = protocol.RequestTimedOut
 							h.logger.Error("wait for ISR ack failed",
 								"error", err,
 								"topic", topicData.TopicName,
@@ -528,7 +528,7 @@ func (h *Handler) handleFetch(r io.Reader, header *protocol.RequestHeader) ([]by
 
 				// Notify any waiting produce requests that HWM may have advanced
 				// HWM is the minimum LEO among all ISR members
-				currentHWM := topic.GetHWM(partReq.PartitionIndex)
+				currentHWM, _ := topic.HighWaterMark(partReq.PartitionIndex)
 				h.produceWaiter.NotifyHWMAdvanced(topicReq.TopicName, partReq.PartitionIndex, currentHWM)
 
 				h.logger.Debug("notified HWM advancement",
