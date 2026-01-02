@@ -1,0 +1,164 @@
+name: Replication Integration Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/pkg/raft/**'
+      - 'backend/pkg/replication/**'
+      - 'backend/pkg/storage/**'
+      - '.github/workflows/replication-tests.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/pkg/raft/**'
+      - 'backend/pkg/replication/**'
+      - 'backend/pkg/storage/**'
+  workflow_dispatch:
+
+jobs:
+  replication-tests:
+    name: Replication Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: backend/go.sum
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          go mod download
+          go mod verify
+
+      - name: Run unit tests
+        working-directory: backend
+        run: |
+          go test -v -short -race ./pkg/replication/
+        
+      - name: Run integration tests
+        working-directory: backend
+        run: |
+          go test -v -race -timeout 10m ./pkg/replication/
+
+      - name: Generate coverage report
+        working-directory: backend
+        run: |
+          go test -coverprofile=coverage.out ./pkg/replication/
+          go tool cover -func=coverage.out -o coverage.txt
+          
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: backend/coverage.out
+          retention-days: 30
+
+      - name: Check coverage threshold
+        working-directory: backend
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Total coverage: ${COVERAGE}%"
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "❌ Coverage ${COVERAGE}% is below 80% threshold"
+            exit 1
+          fi
+          echo "✅ Coverage ${COVERAGE}% meets threshold"
+
+      - name: Post coverage comment (PR only)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const coverage = fs.readFileSync('backend/coverage.txt', 'utf8');
+            const body = `## 🧪 Replication Test Coverage\n\n\`\`\`\n${coverage}\n\`\`\``;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  replication-performance:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: backend/go.sum
+
+      - name: Install dependencies
+        working-directory: backend
+        run: go mod download
+
+      - name: Run performance test
+        working-directory: backend
+        run: |
+          go test -v -run TestReplicationPerformance ./pkg/replication/ > perf.txt 2>&1
+          cat perf.txt
+
+      - name: Extract metrics
+        working-directory: backend
+        run: |
+          echo "## Performance Metrics" > perf-summary.md
+          echo "" >> perf-summary.md
+          grep -E "(latency|Throughput)" perf.txt >> perf-summary.md || true
+          cat perf-summary.md
+
+      - name: Upload performance report
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report
+          path: backend/perf-summary.md
+          retention-days: 90
+
+  replication-matrix:
+    name: Test on Multiple Platforms
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        go-version: ['1.21', '1.22']
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache-dependency-path: backend/go.sum
+
+      - name: Install dependencies
+        working-directory: backend
+        run: go mod download
+
+      - name: Run replication tests
+        working-directory: backend
+        run: |
+          go test -v -race -timeout 10m ./pkg/replication/
+
+      - name: Test summary
+        if: always()
+        run: |
+          echo "Tests completed on ${{ matrix.os }} with Go ${{ matrix.go-version }}"
