@@ -206,6 +206,14 @@ var (
 		[]string{"topic", "partition", "follower_id"},
 	)
 
+	ReplicationLagTimeMs = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "takhin_replication_lag_time_ms",
+			Help: "Time since last follower fetch in milliseconds by topic, partition and follower",
+		},
+		[]string{"topic", "partition", "follower_id"},
+	)
+
 	ReplicationISRSize = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "takhin_replication_isr_size",
@@ -214,10 +222,34 @@ var (
 		[]string{"topic", "partition"},
 	)
 
+	ReplicationISRShrinks = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "takhin_replication_isr_shrinks_total",
+			Help: "Total number of ISR shrink events by topic and partition",
+		},
+		[]string{"topic", "partition"},
+	)
+
+	ReplicationISRExpands = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "takhin_replication_isr_expands_total",
+			Help: "Total number of ISR expand events by topic and partition",
+		},
+		[]string{"topic", "partition"},
+	)
+
 	ReplicationReplicasTotal = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "takhin_replication_replicas_total",
 			Help: "Total number of replicas by topic and partition",
+		},
+		[]string{"topic", "partition"},
+	)
+
+	ReplicationUnderReplicated = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "takhin_replication_under_replicated",
+			Help: "Indicates if partition is under-replicated (ISR < replicas) by topic and partition",
 		},
 		[]string{"topic", "partition"},
 	)
@@ -237,6 +269,22 @@ var (
 			Buckets: []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5},
 		},
 		[]string{"follower_id"},
+	)
+
+	ReplicationBytesInRate = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "takhin_replication_bytes_in_total",
+			Help: "Total bytes received from leader for replication by topic and partition",
+		},
+		[]string{"topic", "partition"},
+	)
+
+	ReplicationBytesOutRate = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "takhin_replication_bytes_out_total",
+			Help: "Total bytes sent to followers for replication by topic and partition",
+		},
+		[]string{"topic", "partition"},
 	)
 
 	// Consumer Group metrics

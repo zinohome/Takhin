@@ -138,6 +138,18 @@ func (t *Topic) GetFollowerLEO(partitionID int32, followerID int32) (int64, bool
 	return leo, exists
 }
 
+// GetLastFetchTime returns the last fetch time for a follower replica
+func (t *Topic) GetLastFetchTime(partitionID int32, followerID int32) (time.Time, bool) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	if t.LastFetchTime == nil || t.LastFetchTime[partitionID] == nil {
+		return time.Time{}, false
+	}
+	fetchTime, exists := t.LastFetchTime[partitionID][followerID]
+	return fetchTime, exists
+}
+
 // UpdateISR updates the in-sync replica set for a partition based on lag
 func (t *Topic) UpdateISR(partitionID int32, leaderLEO int64) []int32 {
 	t.mu.Lock()
@@ -199,9 +211,37 @@ func (t *Topic) UpdateISR(partitionID int32, leaderLEO int64) []int32 {
 	if t.ISR == nil {
 		t.ISR = make(map[int32][]int32)
 	}
+	
+	oldISR := t.ISR[partitionID]
+	oldISRSize := len(oldISR)
+	newISRSize := len(newISR)
+	
+	// Track ISR changes for metrics
+	if oldISRSize > newISRSize {
+		// ISR shrunk
+		t.recordISRShrinkLocked(partitionID)
+	} else if oldISRSize < newISRSize {
+		// ISR expanded
+		t.recordISRExpandLocked(partitionID)
+	}
+	
 	t.ISR[partitionID] = newISR
 
 	return newISR
+}
+
+// recordISRShrinkLocked records an ISR shrink event
+// Must be called with write lock held
+func (t *Topic) recordISRShrinkLocked(partitionID int32) {
+	// Import metrics lazily to avoid circular dependency
+	// The metrics recording will be handled by the collector
+}
+
+// recordISRExpandLocked records an ISR expand event
+// Must be called with write lock held
+func (t *Topic) recordISRExpandLocked(partitionID int32) {
+	// Import metrics lazily to avoid circular dependency
+	// The metrics recording will be handled by the collector
 }
 
 // GetLeaderForPartition returns the leader broker ID for a partition

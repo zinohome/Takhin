@@ -3,6 +3,8 @@
 package metrics
 
 import (
+	"fmt"
+	"sync"
 	"time"
 
 	"github.com/takhin-data/takhin/pkg/coordinator"
@@ -17,6 +19,9 @@ type Collector struct {
 	logger       *logger.Logger
 	stopChan     chan struct{}
 	interval     time.Duration
+	// Track last ISR sizes to detect changes: "topic-partition" -> size
+	lastISRSizes map[string]int
+	isrMu        sync.RWMutex
 }
 
 // NewCollector creates a new metrics collector
@@ -31,6 +36,7 @@ func NewCollector(topicMgr *topic.Manager, coord *coordinator.Coordinator, inter
 		logger:       logger.Default().WithComponent("metrics-collector"),
 		stopChan:     make(chan struct{}),
 		interval:     interval,
+		lastISRSizes: make(map[string]int),
 	}
 }
 
@@ -124,10 +130,35 @@ func (c *Collector) collectReplicationMetrics(t *topic.Topic, topicName string, 
 		return
 	}
 
+	oldISRSize := c.getLastISRSize(topicName, partitionID)
+	newISRSize := len(isr)
+
+	// Track ISR changes
+	if oldISRSize > 0 && oldISRSize != newISRSize {
+		if newISRSize < oldISRSize {
+			RecordISRShrink(topicName, partitionID)
+			c.logger.Warn("ISR shrunk",
+				"topic", topicName,
+				"partition", partitionID,
+				"old_size", oldISRSize,
+				"new_size", newISRSize)
+		} else {
+			RecordISRExpand(topicName, partitionID)
+			c.logger.Info("ISR expanded",
+				"topic", topicName,
+				"partition", partitionID,
+				"old_size", oldISRSize,
+				"new_size", newISRSize)
+		}
+	}
+
+	c.setLastISRSize(topicName, partitionID, newISRSize)
+
 	// Update ISR and replica count
 	UpdateReplicationMetrics(topicName, partitionID, 0, -1, len(isr), len(replicas))
 
 	// Calculate lag for each follower
+	now := time.Now()
 	for i := 1; i < len(replicas); i++ {
 		followerID := replicas[i]
 		followerLEO, exists := t.GetFollowerLEO(partitionID, followerID)
@@ -143,6 +174,16 @@ func (c *Collector) collectReplicationMetrics(t *topic.Topic, topicName string, 
 		}
 
 		UpdateReplicationMetrics(topicName, partitionID, followerID, lag, len(isr), len(replicas))
+
+		// Calculate lag time
+		lastFetchTime, hasFetchTime := t.GetLastFetchTime(partitionID, followerID)
+		if hasFetchTime {
+			lagTimeMs := now.Sub(lastFetchTime).Milliseconds()
+			if lagTimeMs < 0 {
+				lagTimeMs = 0
+			}
+			UpdateReplicationLagTime(topicName, partitionID, followerID, lagTimeMs)
+		}
 	}
 }
 
@@ -205,4 +246,27 @@ func (c *Collector) collectConsumerGroupLag(groupID string, groupInfo *coordinat
 			UpdateConsumerGroupLag(groupID, topicName, partitionID, lag)
 		}
 	}
+}
+
+// getLastISRSize returns the last known ISR size for a partition
+func (c *Collector) getLastISRSize(topic string, partition int32) int {
+	c.isrMu.RLock()
+	defer c.isrMu.RUnlock()
+
+	key := partitionKey(topic, partition)
+	return c.lastISRSizes[key]
+}
+
+// setLastISRSize stores the ISR size for a partition
+func (c *Collector) setLastISRSize(topic string, partition int32, size int) {
+	c.isrMu.Lock()
+	defer c.isrMu.Unlock()
+
+	key := partitionKey(topic, partition)
+	c.lastISRSizes[key] = size
+}
+
+// partitionKey generates a unique key for a partition
+func partitionKey(topic string, partition int32) string {
+	return fmt.Sprintf("%s-%d", topic, partition)
 }

@@ -71,6 +71,45 @@ func UpdateReplicationMetrics(topic string, partition int32, followerID int32, l
 
 	ReplicationISRSize.WithLabelValues(topic, partitionStr).Set(float64(isrSize))
 	ReplicationReplicasTotal.WithLabelValues(topic, partitionStr).Set(float64(replicasTotal))
+
+	// Set under-replicated status
+	if isrSize < replicasTotal {
+		ReplicationUnderReplicated.WithLabelValues(topic, partitionStr).Set(1)
+	} else {
+		ReplicationUnderReplicated.WithLabelValues(topic, partitionStr).Set(0)
+	}
+}
+
+// UpdateReplicationLagTime updates replication lag time metrics
+func UpdateReplicationLagTime(topic string, partition int32, followerID int32, lagMs int64) {
+	partitionStr := strconv.Itoa(int(partition))
+	followerIDStr := strconv.Itoa(int(followerID))
+
+	ReplicationLagTimeMs.WithLabelValues(topic, partitionStr, followerIDStr).Set(float64(lagMs))
+}
+
+// RecordISRShrink records an ISR shrink event
+func RecordISRShrink(topic string, partition int32) {
+	partitionStr := strconv.Itoa(int(partition))
+	ReplicationISRShrinks.WithLabelValues(topic, partitionStr).Inc()
+}
+
+// RecordISRExpand records an ISR expand event
+func RecordISRExpand(topic string, partition int32) {
+	partitionStr := strconv.Itoa(int(partition))
+	ReplicationISRExpands.WithLabelValues(topic, partitionStr).Inc()
+}
+
+// RecordReplicationBytesIn records bytes received from leader
+func RecordReplicationBytesIn(topic string, partition int32, bytes int64) {
+	partitionStr := strconv.Itoa(int(partition))
+	ReplicationBytesInRate.WithLabelValues(topic, partitionStr).Add(float64(bytes))
+}
+
+// RecordReplicationBytesOut records bytes sent to followers
+func RecordReplicationBytesOut(topic string, partition int32, bytes int64) {
+	partitionStr := strconv.Itoa(int(partition))
+	ReplicationBytesOutRate.WithLabelValues(topic, partitionStr).Add(float64(bytes))
 }
 
 // RecordReplicationFetch records a replication fetch request
