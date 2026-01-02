@@ -66,6 +66,50 @@
   - 文档质量管控
   - 持续改进
 
+### 部署运维
+生产环境部署和运维指南。
+
+- [部署文档总览](deployment/README.md)
+  - 文档概览和快速导航
+  - 部署决策矩阵
+  - 环境变量参考
+  - 健康检查和监控
+
+- [单机部署指南](deployment/01-standalone-deployment.md)
+  - 安装方法（源码构建、预编译二进制）
+  - 配置文件设置
+  - systemd 服务配置
+  - Console 部署
+  - 性能调优和备份恢复
+
+- [集群部署指南](deployment/02-cluster-deployment.md)
+  - 多节点集群架构（Raft 共识）
+  - 3+ 节点部署
+  - 负载均衡器配置（HAProxy、nginx）
+  - 集群测试和故障转移
+  - 扩容和灾难恢复
+
+- [Docker/Kubernetes 部署](deployment/03-docker-deployment.md)
+  - Dockerfile 创建和镜像构建
+  - Docker Compose（单机和集群模式）
+  - Kubernetes StatefulSet 部署
+  - Helm Chart 部署
+  - 监控集成和备份
+
+- [配置参考](deployment/04-configuration-reference.md)
+  - 完整配置选项说明
+  - 服务器、Kafka、存储、复制配置
+  - 日志和指标配置
+  - 配置示例（开发、生产、高吞吐）
+  - 性能调优指南
+
+- [故障排查指南](deployment/05-troubleshooting.md)
+  - 快速诊断命令
+  - 8 个常见问题及解决方案
+  - 调试工具（pprof、tcpdump、压测）
+  - 日志分析模式
+  - 监控检查清单
+
 ## 🚀 快速开始
 
 ### 新团队成员入门
