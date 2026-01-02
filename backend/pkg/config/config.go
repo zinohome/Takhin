@@ -22,6 +22,7 @@ type Config struct {
 	Raft        RaftConfig        `koanf:"raft"`
 	Logging     LoggingConfig     `koanf:"logging"`
 	Metrics     MetricsConfig     `koanf:"metrics"`
+	ACL         ACLConfig         `koanf:"acl"`
 }
 
 // ServerConfig holds server configuration
@@ -89,6 +90,14 @@ type MetricsConfig struct {
 	Host    string `koanf:"host"`
 	Port    int    `koanf:"port"`
 	Path    string `koanf:"path"`
+}
+
+// ACLConfig holds ACL configuration
+type ACLConfig struct {
+	Enabled      bool `koanf:"enabled"`
+	CacheEnabled bool `koanf:"cache.enabled"`
+	CacheTTLMs   int  `koanf:"cache.ttl.ms"`
+	CacheSize    int  `koanf:"cache.size"`
 }
 
 // Load loads configuration from file and environment variables
@@ -230,6 +239,15 @@ func setDefaults(cfg *Config) {
 	}
 	if cfg.Metrics.Port == 0 {
 		cfg.Metrics.Port = 9090
+	}
+
+	// ACL defaults
+	// ACL.Enabled defaults to false (explicit opt-in)
+	if cfg.ACL.CacheTTLMs == 0 {
+		cfg.ACL.CacheTTLMs = 300000 // 5 minutes
+	}
+	if cfg.ACL.CacheSize == 0 {
+		cfg.ACL.CacheSize = 10000
 	}
 }
 

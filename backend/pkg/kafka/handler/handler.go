@@ -28,6 +28,16 @@ type Handler struct {
 	txnCoordinator    *TransactionCoordinator
 	replicaAssigner   *replication.ReplicaAssigner // Replica assignment strategy
 	produceWaiter     *ProduceWaiter               // Waits for ISR acknowledgment
+	authorizer        Authorizer                   // ACL authorizer (optional)
+}
+
+// Authorizer interface for ACL authorization
+type Authorizer interface {
+	IsEnabled() bool
+	Authorize(principal, host string, resourceType int8, resourceName string, operation int8) bool
+	AddACL(entry interface{}) error
+	DeleteACL(filter interface{}) (int, error)
+	ListACL(filter interface{}) []interface{}
 }
 
 // New creates a new request handler with direct backend
@@ -78,6 +88,11 @@ func (h *Handler) Close() error {
 		h.produceWaiter.Close()
 	}
 	return nil
+}
+
+// SetAuthorizer sets the ACL authorizer
+func (h *Handler) SetAuthorizer(auth Authorizer) {
+	h.authorizer = auth
 }
 
 // buildBrokerList constructs the broker list for replica assignment
@@ -172,6 +187,12 @@ func (h *Handler) HandleRequest(reqData []byte) ([]byte, error) {
 		response, err = h.handleTxnOffsetCommit(r, header)
 	case protocol.AlterConfigsKey:
 		response, err = h.handleAlterConfigs(r, header)
+	case protocol.CreateAclsKey:
+		response, err = h.handleCreateAcls(r, header)
+	case protocol.DescribeAclsKey:
+		response, err = h.handleDescribeAcls(r, header)
+	case protocol.DeleteAclsKey:
+		response, err = h.handleDeleteAcls(r, header)
 	default:
 		return nil, fmt.Errorf("unsupported API key: %d", header.APIKey)
 	}

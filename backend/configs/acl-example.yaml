@@ -1,0 +1,173 @@
+# Takhin ACL Configuration Example
+# Add to configs/takhin.yaml to enable ACL
+
+# ACL (Access Control List) Configuration
+acl:
+  # Enable ACL authorization (default: false)
+  # When enabled, all operations require explicit permission
+  enabled: false
+
+  # Cache configuration for improved performance
+  cache:
+    # Enable ACL decision caching (default: true)
+    enabled: true
+    
+    # Cache TTL in milliseconds (default: 300000 = 5 minutes)
+    # Cached authorization decisions are revalidated after this time
+    ttl_ms: 300000
+    
+    # Maximum number of cached authorization decisions (default: 10000)
+    # Older entries are evicted using LRU when cache is full
+    size: 10000
+
+# Example: Enable ACL with custom cache settings
+# acl:
+#   enabled: true
+#   cache:
+#     enabled: true
+#     ttl_ms: 600000  # 10 minutes
+#     size: 50000     # 50k entries
+
+# Environment variable overrides:
+# TAKHIN_ACL_ENABLED=true
+# TAKHIN_ACL_CACHE_ENABLED=true
+# TAKHIN_ACL_CACHE_TTL_MS=300000
+# TAKHIN_ACL_CACHE_SIZE=10000
+
+## ACL Usage Examples
+
+### Using kafka-acls Tool
+
+# Grant read access to alice for topic "orders"
+# kafka-acls --bootstrap-server localhost:9092 \
+#   --add \
+#   --allow-principal User:alice \
+#   --operation Read \
+#   --topic orders
+
+# Grant write access to bob for all topics starting with "test-"
+# kafka-acls --bootstrap-server localhost:9092 \
+#   --add \
+#   --allow-principal User:bob \
+#   --operation Write \
+#   --topic test- \
+#   --resource-pattern-type prefix
+
+# Grant all operations to admin for cluster
+# kafka-acls --bootstrap-server localhost:9092 \
+#   --add \
+#   --allow-principal User:admin \
+#   --operation All \
+#   --cluster
+
+# Deny delete operation to alice for topic "critical"
+# kafka-acls --bootstrap-server localhost:9092 \
+#   --add \
+#   --deny-principal User:alice \
+#   --operation Delete \
+#   --topic critical
+
+# List all ACLs
+# kafka-acls --bootstrap-server localhost:9092 --list
+
+# Remove specific ACL
+# kafka-acls --bootstrap-server localhost:9092 \
+#   --remove \
+#   --allow-principal User:alice \
+#   --operation Read \
+#   --topic orders
+
+### Using REST API
+
+# Create ACL via REST API
+# curl -X POST http://localhost:8080/api/acls \
+#   -H "Authorization: Bearer <api-key>" \
+#   -H "Content-Type: application/json" \
+#   -d '{
+#     "principal": "User:alice",
+#     "host": "*",
+#     "resource_type": 2,
+#     "resource_name": "orders",
+#     "pattern_type": 2,
+#     "operation": 2,
+#     "permission_type": 2
+#   }'
+
+# List ACLs filtered by principal
+# curl http://localhost:8080/api/acls?principal=User:alice \
+#   -H "Authorization: Bearer <api-key>"
+
+# Delete ACLs by filter
+# curl -X DELETE "http://localhost:8080/api/acls?principal=User:alice&resource_name=orders" \
+#   -H "Authorization: Bearer <api-key>"
+
+# Get ACL statistics
+# curl http://localhost:8080/api/acls/stats \
+#   -H "Authorization: Bearer <api-key>"
+
+## ACL Type Reference
+
+### Resource Types
+# 2 = Topic
+# 3 = Group (Consumer Group)
+# 4 = Cluster
+
+### Pattern Types
+# 2 = Literal (exact match)
+# 3 = Prefix (starts with)
+
+### Operations
+# 1 = All (grants all operations)
+# 2 = Read
+# 3 = Write
+# 4 = Create
+# 5 = Delete
+# 6 = Alter
+# 7 = Describe
+
+### Permission Types
+# 2 = Allow
+# 3 = Deny (takes precedence over Allow)
+
+## Storage
+
+# ACLs are stored in: <storage.data.dir>/acls/acls.json
+# Format: JSON array of ACL entries
+# Persistence: Atomic writes with temp file + rename
+# Backup recommended: Regular backups of acls.json file
+
+## Performance Notes
+
+# - Cache hit latency: <1μs
+# - Cache miss latency: <10μs (with disk read)
+# - Performance impact: <2% with caching enabled
+# - Memory usage: ~200 bytes per ACL entry
+# - Recommended max ACLs: 100,000 entries
+# - Cache efficiency: >90% hit rate after warm-up
+
+## Security Best Practices
+
+# 1. Enable ACL in production environments
+# 2. Use specific principals (avoid User:* wildcards)
+# 3. Grant least privilege (specific operations, not All)
+# 4. Use Deny rules sparingly (they override Allow)
+# 5. Regular audit of ACL entries
+# 6. Monitor ACL statistics for anomalies
+# 7. Backup acls.json regularly
+# 8. Use IP-based host filtering when needed
+
+## Troubleshooting
+
+# Check if ACL is enabled:
+# - REST API: GET /api/acls/stats
+# - Logs: Look for "ACL check" log entries
+
+# Common issues:
+# 1. "ACL not enabled" - Set acl.enabled: true
+# 2. Permission denied - Check principal format: "User:username"
+# 3. Deny overriding allow - Remove conflicting deny rules
+# 4. High latency - Enable caching, increase cache size
+# 5. Cache misses - Increase cache TTL or size
+
+# Debug logging:
+# Set logging.level: debug to see detailed ACL checks

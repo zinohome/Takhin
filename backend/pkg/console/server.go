@@ -24,6 +24,7 @@ type Server struct {
 	logger        *logger.Logger
 	topicManager  *topic.Manager
 	coordinator   *coordinator.Coordinator
+	aclManager    ACLManager
 	authConfig    AuthConfig
 	addr          string
 	healthChecker *HealthChecker
@@ -100,6 +101,19 @@ func (s *Server) setupRoutes() {
 		r.Get("/", s.handleListConsumerGroups)
 		r.Get("/{group}", s.handleGetConsumerGroup)
 	})
+
+	// ACL routes
+	s.router.Route("/api/acls", func(r chi.Router) {
+		r.Get("/", s.handleListACLs)
+		r.Post("/", s.handleCreateACL)
+		r.Delete("/", s.handleDeleteACL)
+		r.Get("/stats", s.handleACLStats)
+	})
+}
+
+// SetACLManager sets the ACL manager for the server
+func (s *Server) SetACLManager(mgr ACLManager) {
+	s.aclManager = mgr
 }
 
 // Start starts the HTTP server

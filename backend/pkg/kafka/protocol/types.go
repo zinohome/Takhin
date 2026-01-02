@@ -45,6 +45,9 @@ const (
 	AlterConfigsKey       APIKey = 33
 	DescribeLogDirsKey    APIKey = 35
 	SaslAuthenticateKey   APIKey = 36
+	CreateAclsKey         APIKey = 30
+	DescribeAclsKey       APIKey = 29
+	DeleteAclsKey         APIKey = 31
 )
 
 // ResourceType represents Kafka resource types
