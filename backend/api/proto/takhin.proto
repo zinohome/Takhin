@@ -1,0 +1,232 @@
+syntax = "proto3";
+
+package takhin.v1;
+
+option go_package = "github.com/takhin-data/takhin/api/proto;takhinpb";
+
+// TakhinService provides high-performance gRPC API for Takhin operations
+service TakhinService {
+  // Topic operations
+  rpc CreateTopic(CreateTopicRequest) returns (CreateTopicResponse);
+  rpc DeleteTopic(DeleteTopicRequest) returns (DeleteTopicResponse);
+  rpc ListTopics(ListTopicsRequest) returns (ListTopicsResponse);
+  rpc GetTopic(GetTopicRequest) returns (GetTopicResponse);
+  rpc DescribeTopics(DescribeTopicsRequest) returns (DescribeTopicsResponse);
+  
+  // Producer operations
+  rpc ProduceMessage(ProduceMessageRequest) returns (ProduceMessageResponse);
+  rpc ProduceMessageStream(stream ProduceMessageRequest) returns (stream ProduceMessageResponse);
+  
+  // Consumer operations
+  rpc ConsumeMessages(ConsumeMessagesRequest) returns (stream ConsumeMessagesResponse);
+  rpc CommitOffset(CommitOffsetRequest) returns (CommitOffsetResponse);
+  
+  // Consumer group operations
+  rpc ListConsumerGroups(ListConsumerGroupsRequest) returns (ListConsumerGroupsResponse);
+  rpc DescribeConsumerGroup(DescribeConsumerGroupRequest) returns (DescribeConsumerGroupResponse);
+  rpc DeleteConsumerGroup(DeleteConsumerGroupRequest) returns (DeleteConsumerGroupResponse);
+  
+  // Partition operations
+  rpc GetPartitionOffsets(GetPartitionOffsetsRequest) returns (GetPartitionOffsetsResponse);
+  
+  // Health check
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Common types
+message TopicPartitionOffset {
+  string topic = 1;
+  int32 partition = 2;
+  int64 offset = 3;
+}
+
+message RecordHeader {
+  string key = 1;
+  bytes value = 2;
+}
+
+message Record {
+  bytes key = 1;
+  bytes value = 2;
+  repeated RecordHeader headers = 3;
+  int64 timestamp = 4;
+  int64 offset = 5;
+  int32 partition = 6;
+}
+
+// Topic operations
+message CreateTopicRequest {
+  string name = 1;
+  int32 num_partitions = 2;
+  int32 replication_factor = 3;
+  map<string, string> configs = 4;
+}
+
+message CreateTopicResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message DeleteTopicRequest {
+  string name = 1;
+}
+
+message DeleteTopicResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message ListTopicsRequest {
+  // Empty for now, could add filtering later
+}
+
+message ListTopicsResponse {
+  repeated string topics = 1;
+}
+
+message GetTopicRequest {
+  string name = 1;
+}
+
+message TopicInfo {
+  string name = 1;
+  int32 num_partitions = 2;
+  int32 replication_factor = 3;
+  map<int32, PartitionInfo> partitions = 4;
+}
+
+message PartitionInfo {
+  int32 partition_id = 1;
+  int64 beginning_offset = 2;
+  int64 end_offset = 3;
+  int32 leader = 4;
+  repeated int32 replicas = 5;
+  repeated int32 isr = 6;
+}
+
+message GetTopicResponse {
+  TopicInfo topic = 1;
+  string error = 2;
+}
+
+message DescribeTopicsRequest {
+  repeated string topics = 1;
+}
+
+message DescribeTopicsResponse {
+  repeated TopicInfo topics = 1;
+}
+
+// Producer operations
+message ProduceMessageRequest {
+  string topic = 1;
+  int32 partition = 2; // -1 for automatic partition selection
+  Record record = 3;
+  int32 required_acks = 4; // 0=no ack, 1=leader ack, -1=all replicas ack
+  int32 timeout_ms = 5;
+}
+
+message ProduceMessageResponse {
+  string topic = 1;
+  int32 partition = 2;
+  int64 offset = 3;
+  int64 timestamp = 4;
+  string error = 5;
+}
+
+// Consumer operations
+message ConsumeMessagesRequest {
+  string topic = 1;
+  int32 partition = 2;
+  int64 offset = 3; // -1 for earliest, -2 for latest
+  int32 max_bytes = 4;
+  int32 min_bytes = 5;
+  int32 max_wait_ms = 6;
+}
+
+message ConsumeMessagesResponse {
+  string topic = 1;
+  int32 partition = 2;
+  int64 high_watermark = 3;
+  repeated Record records = 4;
+  string error = 5;
+}
+
+message CommitOffsetRequest {
+  string group_id = 1;
+  repeated TopicPartitionOffset offsets = 2;
+}
+
+message CommitOffsetResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+// Consumer group operations
+message ListConsumerGroupsRequest {
+  // Empty for now
+}
+
+message ConsumerGroupInfo {
+  string group_id = 1;
+  string state = 2;
+  string protocol_type = 3;
+  int32 member_count = 4;
+}
+
+message ListConsumerGroupsResponse {
+  repeated ConsumerGroupInfo groups = 1;
+}
+
+message DescribeConsumerGroupRequest {
+  string group_id = 1;
+}
+
+message ConsumerGroupMember {
+  string member_id = 1;
+  string client_id = 2;
+  string client_host = 3;
+  repeated TopicPartitionOffset assignments = 4;
+}
+
+message DescribeConsumerGroupResponse {
+  string group_id = 1;
+  string state = 2;
+  string protocol_type = 3;
+  repeated ConsumerGroupMember members = 4;
+  string error = 5;
+}
+
+message DeleteConsumerGroupRequest {
+  string group_id = 1;
+}
+
+message DeleteConsumerGroupResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+// Partition operations
+message GetPartitionOffsetsRequest {
+  string topic = 1;
+  int32 partition = 2;
+}
+
+message GetPartitionOffsetsResponse {
+  string topic = 1;
+  int32 partition = 2;
+  int64 beginning_offset = 3;
+  int64 end_offset = 4;
+  string error = 5;
+}
+
+// Health check
+message HealthCheckRequest {
+  // Empty
+}
+
+message HealthCheckResponse {
+  string status = 1;
+  string version = 2;
+  int64 uptime_seconds = 3;
+}

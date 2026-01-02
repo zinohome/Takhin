@@ -80,6 +80,24 @@ tasks:
       - go fmt ./...
       - goimports -w .
 
+  backend:grpc:proto:
+    desc: Generate gRPC code from proto files
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - make -f Makefile.proto proto
+
+  backend:grpc:test:
+    desc: Run gRPC API tests
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - go test -v -race ./pkg/grpcapi/...
+
+  backend:grpc:bench:
+    desc: Run gRPC API benchmarks
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - go test -bench=. -benchmem -benchtime=5s ./pkg/grpcapi/
+
   backend:clean:
     desc: Clean backend build artifacts
     cmds:
