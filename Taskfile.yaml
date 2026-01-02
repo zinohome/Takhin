@@ -48,6 +48,17 @@ tasks:
     cmds:
       - go test -v -race -short ./...
 
+  backend:bench:
+    desc: Run backend storage benchmarks
+    cmds:
+      - ./scripts/run_benchmarks.sh
+
+  backend:bench:quick:
+    desc: Run quick storage benchmarks
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - go test -bench=. -benchtime=1s -benchmem ./pkg/storage/log ./pkg/storage/topic
+
   backend:coverage:
     desc: Show backend test coverage
     dir: '{{.BACKEND_DIR}}'
