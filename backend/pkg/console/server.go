@@ -29,10 +29,13 @@ type Server struct {
 	authConfig    AuthConfig
 	addr          string
 	healthChecker *HealthChecker
+	wsHub         *WebSocketHub
 }
 
 // NewServer creates a new Console API server
 func NewServer(addr string, topicManager *topic.Manager, coord *coordinator.Coordinator, aclStore *acl.Store, authConfig AuthConfig) *Server {
+	wsHub := NewWebSocketHub()
+	
 	s := &Server{
 		router:        chi.NewRouter(),
 		logger:        logger.Default().WithComponent("console-api"),
@@ -42,7 +45,10 @@ func NewServer(addr string, topicManager *topic.Manager, coord *coordinator.Coor
 		authConfig:    authConfig,
 		addr:          addr,
 		healthChecker: NewHealthChecker("1.0.0", topicManager, coord),
+		wsHub:         wsHub,
 	}
+
+	go wsHub.Run()
 
 	s.setupMiddleware()
 	s.setupRoutes()
@@ -131,6 +137,14 @@ func (s *Server) setupRoutes() {
 func (s *Server) Start() error {
 	s.logger.Info("starting console API server", "addr", s.addr)
 	return http.ListenAndServe(s.addr, s.router)
+}
+
+// Shutdown gracefully shuts down the server
+func (s *Server) Shutdown() {
+	s.logger.Info("shutting down console API server")
+	if s.wsHub != nil {
+		s.wsHub.Stop()
+	}
 }
 
 // handleHealth godoc
@@ -298,6 +312,8 @@ func (s *Server) handleCreateTopic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.BroadcastTopicCreated(req.Name, req.Partitions)
+
 	s.respondJSON(w, http.StatusCreated, map[string]string{
 		"name":       req.Name,
 		"partitions": strconv.Itoa(int(req.Partitions)),
@@ -320,6 +336,8 @@ func (s *Server) handleDeleteTopic(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	s.BroadcastTopicDeleted(topicName)
 
 	s.respondJSON(w, http.StatusOK, map[string]string{
 		"message": "topic deleted successfully",
