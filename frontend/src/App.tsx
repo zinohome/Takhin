@@ -5,6 +5,7 @@ import Topics from './pages/Topics'
 import Messages from './pages/Messages'
 import Brokers from './pages/Brokers'
 import Consumers from './pages/Consumers'
+import Configuration from './pages/Configuration'
 import './App.css'
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
           <Route path="brokers/:brokerId" element={<Brokers />} />
           <Route path="consumers" element={<Consumers />} />
           <Route path="consumers/:groupId" element={<Consumers />} />
+          <Route path="configuration" element={<Configuration />} />
         </Route>
       </Routes>
     </div>

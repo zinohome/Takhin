@@ -46,6 +46,11 @@ const menuItems: MenuItem[] = [
       },
     ],
   },
+  {
+    key: '/configuration',
+    icon: <SettingOutlined />,
+    label: <Link to="/configuration">Configuration</Link>,
+  },
 ]
 
 const userMenuItems: MenuProps['items'] = [

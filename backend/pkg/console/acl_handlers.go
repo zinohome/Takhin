@@ -67,18 +67,18 @@ func (s *Server) handleListAcls(w http.ResponseWriter, r *http.Request) {
 		entries = s.aclStore.GetAll()
 	} else {
 		filter := acl.Filter{}
-		
+
 		if resourceType != "" {
 			filter.ResourceFilter.ResourceType = parseResourceType(resourceType)
 			if resourceName != "" {
 				filter.ResourceFilter.ResourceName = &resourceName
 			}
 		}
-		
+
 		if principal != "" {
 			filter.AccessFilter.Principal = &principal
 		}
-		
+
 		entries = s.aclStore.List(filter)
 	}
 
@@ -187,33 +187,33 @@ func (s *Server) handleDeleteAcls(w http.ResponseWriter, r *http.Request) {
 
 	// Build filter
 	filter := acl.Filter{}
-	
+
 	if req.ResourceType != nil {
 		filter.ResourceFilter.ResourceType = parseResourceType(*req.ResourceType)
 	}
-	
+
 	if req.ResourceName != nil {
 		filter.ResourceFilter.ResourceName = req.ResourceName
 	}
-	
+
 	if req.PatternType != nil {
 		pt := parsePatternType(*req.PatternType)
 		filter.ResourceFilter.PatternType = &pt
 	}
-	
+
 	if req.Principal != nil {
 		filter.AccessFilter.Principal = req.Principal
 	}
-	
+
 	if req.Host != nil {
 		filter.AccessFilter.Host = req.Host
 	}
-	
+
 	if req.Operation != nil {
 		op := parseOperation(*req.Operation)
 		filter.AccessFilter.Operation = &op
 	}
-	
+
 	if req.PermissionType != nil {
 		pt := parsePermissionType(*req.PermissionType)
 		filter.AccessFilter.PermissionType = &pt

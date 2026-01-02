@@ -173,3 +173,68 @@ export interface ClusterHealthMetrics {
   memoryUsageBytes: number
   goroutineCount: number
 }
+
+// Configuration Types
+export interface ClusterConfig {
+  brokerId: number
+  listeners: string[]
+  advertisedHost: string
+  advertisedPort: number
+  maxMessageBytes: number
+  maxConnections: number
+  requestTimeoutMs: number
+  connectionTimeoutMs: number
+  dataDir: string
+  logSegmentSize: number
+  logRetentionHours: number
+  logRetentionBytes: number
+  metricsEnabled: boolean
+  metricsPort: number
+}
+
+export interface TopicConfig {
+  name: string
+  compressionType: string
+  cleanupPolicy: string
+  retentionMs: number
+  segmentMs: number
+  maxMessageBytes: number
+  minInSyncReplicas: number
+  customConfigs?: Record<string, string>
+}
+
+export interface UpdateClusterConfigRequest {
+  maxMessageBytes?: number
+  maxConnections?: number
+  requestTimeoutMs?: number
+  connectionTimeoutMs?: number
+  logRetentionHours?: number
+}
+
+export interface UpdateTopicConfigRequest {
+  compressionType?: string
+  cleanupPolicy?: string
+  retentionMs?: number
+  segmentMs?: number
+  maxMessageBytes?: number
+  minInSyncReplicas?: number
+}
+
+export interface BatchUpdateTopicConfigsRequest {
+  topics: string[]
+  config: UpdateTopicConfigRequest
+}
+
+export interface ConfigChange {
+  key: string
+  oldValue: string
+  newValue: string
+  timestamp: number
+  user?: string
+}
+
+export interface ConfigHistory {
+  resourceType: string
+  resourceName: string
+  changes: ConfigChange[]
+}

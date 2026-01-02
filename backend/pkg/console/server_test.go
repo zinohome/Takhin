@@ -23,7 +23,7 @@ func TestConsoleAPI(t *testing.T) {
 	coord.Start()
 
 	authConfig := AuthConfig{Enabled: false}
-	server := NewServer(":8080", topicMgr, coord, authConfig)
+	server := NewServer(":8080", topicMgr, coord, nil, authConfig)
 
 	t.Run("health check", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/api/health", nil)
@@ -90,7 +90,7 @@ func TestConsoleAPIErrors(t *testing.T) {
 	coord.Start()
 
 	authConfig := AuthConfig{Enabled: false}
-	server := NewServer(":8080", topicMgr, coord, authConfig)
+	server := NewServer(":8080", topicMgr, coord, nil, authConfig)
 
 	t.Run("create topic with empty name", func(t *testing.T) {
 		reqBody := CreateTopicRequest{
@@ -197,7 +197,7 @@ func TestConsoleAPIMessages(t *testing.T) {
 	coord.Start()
 
 	authConfig := AuthConfig{Enabled: false}
-	server := NewServer(":8080", topicMgr, coord, authConfig)
+	server := NewServer(":8080", topicMgr, coord, nil, authConfig)
 
 	// Create a topic
 	topicMgr.CreateTopic("messages-topic", 3)

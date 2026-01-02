@@ -116,6 +116,15 @@ func (s *Server) setupRoutes() {
 		r.Post("/", s.handleCreateAcl)
 		r.Delete("/", s.handleDeleteAcls)
 	})
+
+	// Configuration routes
+	s.router.Route("/api/configs", func(r chi.Router) {
+		r.Get("/cluster", s.handleGetClusterConfig)
+		r.Put("/cluster", s.handleUpdateClusterConfig)
+		r.Get("/topics/{topic}", s.handleGetTopicConfig)
+		r.Put("/topics/{topic}", s.handleUpdateTopicConfig)
+		r.Put("/topics", s.handleBatchUpdateTopicConfigs)
+	})
 }
 
 // Start starts the HTTP server
@@ -133,14 +142,14 @@ func (s *Server) Start() error {
 // @Router       /health [get]
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	health := s.healthChecker.Check()
-	
+
 	statusCode := http.StatusOK
 	if health.Status == HealthStatusDegraded {
 		statusCode = http.StatusOK // 200 for degraded but functional
 	} else if health.Status == HealthStatusUnhealthy {
 		statusCode = http.StatusServiceUnavailable
 	}
-	
+
 	s.respondJSON(w, statusCode, health)
 }
 
@@ -154,12 +163,12 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 // @Router       /health/ready [get]
 func (s *Server) handleReadiness(w http.ResponseWriter, r *http.Request) {
 	ready := s.healthChecker.ReadinessCheck()
-	
+
 	statusCode := http.StatusOK
 	if !ready {
 		statusCode = http.StatusServiceUnavailable
 	}
-	
+
 	s.respondJSON(w, statusCode, map[string]bool{
 		"ready": ready,
 	})

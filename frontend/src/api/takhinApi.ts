@@ -15,6 +15,11 @@ import type {
   ConsumerGroupDetail,
   GetMessagesParams,
   MonitoringMetrics,
+  ClusterConfig,
+  TopicConfig,
+  UpdateClusterConfigRequest,
+  UpdateTopicConfigRequest,
+  BatchUpdateTopicConfigsRequest,
 } from './types'
 
 export class TakhinApiClient {
@@ -235,6 +240,66 @@ export class TakhinApiClient {
     }
 
     return ws
+  }
+
+  // Configuration Endpoints
+
+  async getClusterConfig(): Promise<ClusterConfig> {
+    try {
+      const response = await this.client.get<ClusterConfig>('/configs/cluster')
+      return response.data
+    } catch (error) {
+      throw handleApiError(error)
+    }
+  }
+
+  async updateClusterConfig(config: UpdateClusterConfigRequest): Promise<ClusterConfig> {
+    try {
+      const response = await this.client.put<ClusterConfig>('/configs/cluster', config)
+      return response.data
+    } catch (error) {
+      throw handleApiError(error)
+    }
+  }
+
+  async getTopicConfig(topicName: string): Promise<TopicConfig> {
+    try {
+      const response = await this.client.get<TopicConfig>(
+        `/configs/topics/${encodeURIComponent(topicName)}`
+      )
+      return response.data
+    } catch (error) {
+      throw handleApiError(error)
+    }
+  }
+
+  async updateTopicConfig(
+    topicName: string,
+    config: UpdateTopicConfigRequest
+  ): Promise<TopicConfig> {
+    try {
+      const response = await this.client.put<TopicConfig>(
+        `/configs/topics/${encodeURIComponent(topicName)}`,
+        config
+      )
+      return response.data
+    } catch (error) {
+      throw handleApiError(error)
+    }
+  }
+
+  async batchUpdateTopicConfigs(
+    request: BatchUpdateTopicConfigsRequest
+  ): Promise<{ updated: number; topics: string[] }> {
+    try {
+      const response = await this.client.put<{ updated: number; topics: string[] }>(
+        '/configs/topics',
+        request
+      )
+      return response.data
+    } catch (error) {
+      throw handleApiError(error)
+    }
   }
 
   // Custom request method for advanced use cases
