@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
+	"github.com/takhin-data/takhin/pkg/acl"
 	"github.com/takhin-data/takhin/pkg/coordinator"
 	"github.com/takhin-data/takhin/pkg/logger"
 	"github.com/takhin-data/takhin/pkg/storage/topic"
@@ -24,18 +25,20 @@ type Server struct {
 	logger        *logger.Logger
 	topicManager  *topic.Manager
 	coordinator   *coordinator.Coordinator
+	aclStore      *acl.Store
 	authConfig    AuthConfig
 	addr          string
 	healthChecker *HealthChecker
 }
 
 // NewServer creates a new Console API server
-func NewServer(addr string, topicManager *topic.Manager, coord *coordinator.Coordinator, authConfig AuthConfig) *Server {
+func NewServer(addr string, topicManager *topic.Manager, coord *coordinator.Coordinator, aclStore *acl.Store, authConfig AuthConfig) *Server {
 	s := &Server{
 		router:        chi.NewRouter(),
 		logger:        logger.Default().WithComponent("console-api"),
 		topicManager:  topicManager,
 		coordinator:   coord,
+		aclStore:      aclStore,
 		authConfig:    authConfig,
 		addr:          addr,
 		healthChecker: NewHealthChecker("1.0.0", topicManager, coord),
@@ -105,6 +108,13 @@ func (s *Server) setupRoutes() {
 	s.router.Route("/api/monitoring", func(r chi.Router) {
 		r.Get("/metrics", s.handleMonitoringMetrics)
 		r.Get("/ws", s.handleMonitoringWebSocket)
+	})
+
+	// ACL routes
+	s.router.Route("/api/acls", func(r chi.Router) {
+		r.Get("/", s.handleListAcls)
+		r.Post("/", s.handleCreateAcl)
+		r.Delete("/", s.handleDeleteAcls)
 	})
 }
 

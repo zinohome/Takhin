@@ -152,3 +152,8 @@ metrics:
   host: "0.0.0.0"
   port: 9090
   path: "/metrics"
+
+# ACL Configuration
+acl:
+  enabled: false      # Enable ACL authorization (disabled by default)
+
