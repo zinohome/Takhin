@@ -82,3 +82,76 @@ type ConsumerGroupOffsetCommit struct {
 	Offset    int64  `json:"offset"`
 	Metadata  string `json:"metadata"`
 }
+
+// Monitoring types
+
+// MonitoringMetrics represents real-time cluster metrics
+type MonitoringMetrics struct {
+	Throughput    ThroughputMetrics    `json:"throughput"`
+	Latency       LatencyMetrics       `json:"latency"`
+	TopicStats    []TopicStats         `json:"topicStats"`
+	ConsumerLags  []ConsumerGroupLag   `json:"consumerLags"`
+	ClusterHealth ClusterHealthMetrics `json:"clusterHealth"`
+	Timestamp     int64                `json:"timestamp"`
+}
+
+// ThroughputMetrics represents produce/fetch throughput
+type ThroughputMetrics struct {
+	ProduceRate float64 `json:"produceRate"`
+	FetchRate   float64 `json:"fetchRate"`
+	ProduceBytes float64 `json:"produceBytes"`
+	FetchBytes   float64 `json:"fetchBytes"`
+}
+
+// LatencyMetrics represents request latency percentiles
+type LatencyMetrics struct {
+	ProduceP50 float64 `json:"produceP50"`
+	ProduceP95 float64 `json:"produceP95"`
+	ProduceP99 float64 `json:"produceP99"`
+	FetchP50   float64 `json:"fetchP50"`
+	FetchP95   float64 `json:"fetchP95"`
+	FetchP99   float64 `json:"fetchP99"`
+}
+
+// TopicStats represents statistics for a topic
+type TopicStats struct {
+	Name           string  `json:"name"`
+	Partitions     int     `json:"partitions"`
+	TotalMessages  int64   `json:"totalMessages"`
+	TotalBytes     int64   `json:"totalBytes"`
+	ProduceRate    float64 `json:"produceRate"`
+	FetchRate      float64 `json:"fetchRate"`
+}
+
+// ConsumerGroupLag represents lag information for a consumer group
+type ConsumerGroupLag struct {
+	GroupID     string             `json:"groupId"`
+	TotalLag    int64              `json:"totalLag"`
+	TopicLags   []TopicLag         `json:"topicLags"`
+}
+
+// TopicLag represents lag per topic
+type TopicLag struct {
+	Topic         string          `json:"topic"`
+	TotalLag      int64           `json:"totalLag"`
+	PartitionLags []PartitionLag  `json:"partitionLags"`
+}
+
+// PartitionLag represents lag for a partition
+type PartitionLag struct {
+	Partition      int32 `json:"partition"`
+	CurrentOffset  int64 `json:"currentOffset"`
+	LogEndOffset   int64 `json:"logEndOffset"`
+	Lag            int64 `json:"lag"`
+}
+
+// ClusterHealthMetrics represents overall cluster health
+type ClusterHealthMetrics struct {
+	ActiveConnections int     `json:"activeConnections"`
+	TotalTopics       int     `json:"totalTopics"`
+	TotalPartitions   int     `json:"totalPartitions"`
+	TotalConsumers    int     `json:"totalConsumers"`
+	DiskUsageBytes    int64   `json:"diskUsageBytes"`
+	MemoryUsageBytes  int64   `json:"memoryUsageBytes"`
+	GoroutineCount    int     `json:"goroutineCount"`
+}
