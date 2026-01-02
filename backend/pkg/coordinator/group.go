@@ -287,3 +287,17 @@ func (g *Group) NeedsRebalance() bool {
 	// Check if we have pending members
 	return len(g.PendingMembers) > 0
 }
+
+// GetState returns the current group state (thread-safe)
+func (g *Group) GetState() GroupState {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.State
+}
+
+// GetMemberCount returns the number of members in the group (thread-safe)
+func (g *Group) GetMemberCount() int {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return len(g.Members)
+}
