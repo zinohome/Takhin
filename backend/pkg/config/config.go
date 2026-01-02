@@ -19,6 +19,7 @@ type Config struct {
 	Kafka       KafkaConfig       `koanf:"kafka"`
 	Storage     StorageConfig     `koanf:"storage"`
 	Replication ReplicationConfig `koanf:"replication"`
+	Raft        RaftConfig        `koanf:"raft"`
 	Logging     LoggingConfig     `koanf:"logging"`
 	Metrics     MetricsConfig     `koanf:"metrics"`
 }
@@ -62,6 +63,18 @@ type ReplicationConfig struct {
 	ReplicaLagTimeMaxMs      int64 `koanf:"replica.lag.time.max.ms"`
 	ReplicaFetchWaitMaxMs    int   `koanf:"replica.fetch.wait.max.ms"`
 	ReplicaFetchMaxBytes     int   `koanf:"replica.fetch.max.bytes"`
+}
+
+// RaftConfig holds Raft consensus configuration
+type RaftConfig struct {
+	HeartbeatTimeoutMs   int  `koanf:"heartbeat.timeout.ms"`
+	ElectionTimeoutMs    int  `koanf:"election.timeout.ms"`
+	LeaderLeaseTimeoutMs int  `koanf:"leader.lease.timeout.ms"`
+	CommitTimeoutMs      int  `koanf:"commit.timeout.ms"`
+	SnapshotIntervalMs   int  `koanf:"snapshot.interval.ms"`
+	SnapshotThreshold    int  `koanf:"snapshot.threshold"`
+	PreVoteEnabled       bool `koanf:"prevote.enabled"`
+	MaxAppendEntries     int  `koanf:"max.append.entries"`
 }
 
 // LoggingConfig holds logging configuration
@@ -180,6 +193,31 @@ func setDefaults(cfg *Config) {
 		cfg.Replication.ReplicaFetchMaxBytes = 1048576 // 1MB
 	}
 
+	// Raft defaults - optimized for fast leader election
+	if cfg.Raft.HeartbeatTimeoutMs == 0 {
+		cfg.Raft.HeartbeatTimeoutMs = 1000 // 1 second
+	}
+	if cfg.Raft.ElectionTimeoutMs == 0 {
+		cfg.Raft.ElectionTimeoutMs = 3000 // 3 seconds
+	}
+	if cfg.Raft.LeaderLeaseTimeoutMs == 0 {
+		cfg.Raft.LeaderLeaseTimeoutMs = 500 // 500ms
+	}
+	if cfg.Raft.CommitTimeoutMs == 0 {
+		cfg.Raft.CommitTimeoutMs = 50 // 50ms
+	}
+	if cfg.Raft.SnapshotIntervalMs == 0 {
+		cfg.Raft.SnapshotIntervalMs = 120000 // 2 minutes
+	}
+	if cfg.Raft.SnapshotThreshold == 0 {
+		cfg.Raft.SnapshotThreshold = 8192 // 8192 log entries
+	}
+	if cfg.Raft.MaxAppendEntries == 0 {
+		cfg.Raft.MaxAppendEntries = 64
+	}
+	// PreVote is enabled by default (explicit opt-out)
+	// No need to set default as false is the zero value
+
 	if cfg.Logging.Level == "" {
 		cfg.Logging.Level = "info"
 	}
@@ -221,6 +259,20 @@ func validate(cfg *Config) error {
 
 	if cfg.Storage.LogSegmentSize <= 0 {
 		return fmt.Errorf("invalid log segment size: %d", cfg.Storage.LogSegmentSize)
+	}
+
+	// Validate Raft configuration (only if any Raft values are set)
+	if cfg.Raft.HeartbeatTimeoutMs > 0 {
+		if cfg.Raft.HeartbeatTimeoutMs < 100 {
+			return fmt.Errorf("invalid heartbeat timeout: %dms (minimum 100ms)", cfg.Raft.HeartbeatTimeoutMs)
+		}
+		if cfg.Raft.ElectionTimeoutMs < cfg.Raft.HeartbeatTimeoutMs {
+			return fmt.Errorf("election timeout (%dms) must be >= heartbeat timeout (%dms)",
+				cfg.Raft.ElectionTimeoutMs, cfg.Raft.HeartbeatTimeoutMs)
+		}
+		if cfg.Raft.LeaderLeaseTimeoutMs > 0 && cfg.Raft.LeaderLeaseTimeoutMs < 100 {
+			return fmt.Errorf("invalid leader lease timeout: %dms (minimum 100ms)", cfg.Raft.LeaderLeaseTimeoutMs)
+		}
 	}
 
 	validLevels := map[string]bool{
