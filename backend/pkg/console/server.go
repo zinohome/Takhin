@@ -37,6 +37,7 @@ type Server struct {
 	config          *config.Config
 	consumerManager *ConsumerManager
 	tieredStorage   *tiered.TieredStorage
+	tierManager     *tiered.TierManager
 }
 
 // NewServer creates a new Console API server
@@ -169,6 +170,16 @@ func (s *Server) setupRoutes() {
 		r.Get("/bundle/download", s.handleDownloadDebugBundle)
 		r.Get("/system", s.handleDebugSystemInfo)
 	})
+
+	// Tier management routes
+	if s.tierManager != nil {
+		s.setupTierRoutes(s.router)
+	}
+}
+
+// SetTierManager sets the tier manager for the server
+func (s *Server) SetTierManager(tm *tiered.TierManager) {
+	s.tierManager = tm
 }
 
 // Start starts the HTTP server

@@ -103,6 +103,11 @@ type TieredConfig struct {
 	ArchiveIntervalMin int    `koanf:"archive.interval.minutes"`
 	LocalCacheSizeMB   int64  `koanf:"local.cache.size.mb"`
 	AutoArchiveEnabled bool   `koanf:"auto.archive.enabled"`
+	
+	// Cold-Hot Separation
+	HotMinAccessHz     float64 `koanf:"hot.min.access.hz"`
+	HotMinAccessCount  int64   `koanf:"hot.min.access.count"`
+	TierCheckIntervalMin int   `koanf:"tier.check.interval.minutes"`
 }
 
 // EncryptionConfig holds encryption at rest configuration

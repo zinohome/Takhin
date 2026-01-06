@@ -3,30 +3,41 @@
 package log
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
 )
+
+type TierManager interface {
+	RecordAccess(segmentPath string, readBytes int64)
+	DetermineTier(segmentPath string, segmentAge time.Duration) string
+	PromoteSegment(ctx context.Context, segmentPath string, fromTier, toTier string) error
+}
 
 type Log struct {
 	dir            string
 	segments       []*Segment
 	activeSegment  *Segment
 	maxSegmentSize int64
+	tierManager    TierManager
 	mu             sync.RWMutex
 }
 
 type LogConfig struct {
 	Dir            string
 	MaxSegmentSize int64
+	TierManager    TierManager
 }
 
 func NewLog(config LogConfig) (*Log, error) {
 	log := &Log{
 		dir:            config.Dir,
 		maxSegmentSize: config.MaxSegmentSize,
+		tierManager:    config.TierManager,
 		segments:       make([]*Segment, 0),
 	}
 
@@ -179,12 +190,18 @@ func (l *Log) AppendBatch(records []struct{ Key, Value []byte }) ([]int64, error
 
 func (l *Log) Read(offset int64) (*Record, error) {
 	l.mu.RLock()
-	defer l.mu.RUnlock()
-
 	segment := l.findSegment(offset)
 	if segment == nil {
+		l.mu.RUnlock()
 		return nil, fmt.Errorf("offset not found: %d", offset)
 	}
+	
+	// Track access for tier management
+	if l.tierManager != nil {
+		segmentPath, _ := filepath.Rel(filepath.Dir(l.dir), segment.Path())
+		l.tierManager.RecordAccess(segmentPath, 0)
+	}
+	l.mu.RUnlock()
 
 	return segment.Read(offset)
 }
@@ -193,12 +210,18 @@ func (l *Log) Read(offset int64) (*Record, error) {
 // Returns the segment and position/size for zero-copy transfer.
 func (l *Log) ReadRange(offset int64, maxBytes int64) (*Segment, int64, int64, error) {
 	l.mu.RLock()
-	defer l.mu.RUnlock()
-
 	segment := l.findSegment(offset)
 	if segment == nil {
+		l.mu.RUnlock()
 		return nil, 0, 0, fmt.Errorf("offset not found: %d", offset)
 	}
+	
+	// Track access for tier management
+	if l.tierManager != nil {
+		segmentPath, _ := filepath.Rel(filepath.Dir(l.dir), segment.Path())
+		l.tierManager.RecordAccess(segmentPath, maxBytes)
+	}
+	l.mu.RUnlock()
 
 	position, size, err := segment.ReadRange(offset, maxBytes)
 	if err != nil {

@@ -346,6 +346,11 @@ func (s *Segment) IsFull() bool {
 	return stat.Size() >= s.maxBytes
 }
 
+// Path returns the path to the segment data file
+func (s *Segment) Path() string {
+	return s.dataFile.Name()
+}
+
 func (s *Segment) Flush() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

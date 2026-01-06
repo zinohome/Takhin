@@ -123,6 +123,15 @@ storage:
     auto:
       archive:
         enabled: true                    # Auto-archive cold segments
+    hot:
+      min:
+        access:
+          hz: 10.0                       # Min accesses per hour to stay hot
+          count: 100                     # Min access count to stay hot
+    tier:
+      check:
+        interval:
+          minutes: 30                    # Tier evaluation interval
 
 # Replication Configuration
 replication:
