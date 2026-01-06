@@ -1,7 +1,8 @@
 // Copyright 2025 Takhin Data, Inc.
 
-//go:build linux || darwin || freebsd || netbsd || openbsd
-// +build linux darwin freebsd netbsd openbsd
+//go:build (darwin || freebsd || netbsd || openbsd) && !linux
+// +build darwin freebsd netbsd openbsd
+// +build !linux
 
 package zerocopy
 
@@ -68,10 +69,9 @@ func sendFileToFile(dst *os.File, src *os.File, offset int64, count int64) (int6
 	return copyFileRange(dst, src, offset, count)
 }
 
-// copyFileRange copies data between two files using zero-copy I/O.
+// copyFileRange copies data between two files.
+// On non-Linux platforms, this uses a regular buffer-based copy.
 func copyFileRange(dst *os.File, src *os.File, offset int64, count int64) (int64, error) {
-	// copy_file_range is Linux-specific (kernel 4.5+)
-	// For macOS/BSD, we fallback to regular copy
 	return fallbackCopy(dst, src, offset, count)
 }
 

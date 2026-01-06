@@ -1,0 +1,18 @@
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates tzdata
+
+WORKDIR /app
+
+COPY takhin /usr/local/bin/takhin
+COPY takhin-console /usr/local/bin/takhin-console
+COPY takhin-cli /usr/local/bin/takhin-cli
+
+RUN chmod +x /usr/local/bin/takhin \
+    && chmod +x /usr/local/bin/takhin-console \
+    && chmod +x /usr/local/bin/takhin-cli
+
+EXPOSE 9092 9093 8080
+
+ENTRYPOINT ["/usr/local/bin/takhin"]
+CMD ["-config", "/etc/takhin/takhin.yaml"]

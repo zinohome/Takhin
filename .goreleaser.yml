@@ -1,0 +1,307 @@
+version: 2
+
+before:
+  hooks:
+    - go mod download
+    - go mod tidy
+
+builds:
+  - id: takhin
+    main: ./cmd/takhin
+    dir: backend
+    binary: takhin
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+      - -X main.Commit={{.Commit}}
+      - -X main.Date={{.Date}}
+      - -X main.BuiltBy=goreleaser
+    tags:
+      - netgo
+      - osusergo
+
+  - id: takhin-console
+    main: ./cmd/console
+    dir: backend
+    binary: takhin-console
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+      - -X main.Commit={{.Commit}}
+      - -X main.Date={{.Date}}
+    tags:
+      - netgo
+      - osusergo
+
+  - id: takhin-cli
+    main: ./cmd/takhin-cli
+    dir: backend
+    binary: takhin-cli
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/takhin/takhin/pkg/cli.Version={{.Version}}
+      - -X github.com/takhin/takhin/pkg/cli.Commit={{.Commit}}
+      - -X github.com/takhin/takhin/pkg/cli.BuildDate={{.Date}}
+
+  - id: takhin-debug
+    main: ./cmd/takhin-debug
+    dir: backend
+    binary: takhin-debug
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+
+  - id: schema-registry
+    main: ./cmd/schema-registry
+    dir: backend
+    binary: takhin-schema-registry
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+      - zip
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - README.md
+      - LICENSE
+      - backend/configs/takhin.yaml
+      - docs/**/*
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: 'New Features'
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: 'Performance Improvements'
+      regexp: "^.*perf[(\\w)]*:+.*$"
+      order: 2
+    - title: 'Others'
+      order: 999
+
+release:
+  github:
+    owner: takhin
+    name: takhin
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## Takhin {{ .Tag }} ({{ .Date }})
+    
+    ### Downloads
+    
+    | Platform | Architecture | File |
+    |----------|--------------|------|
+    {{- range .ArtifactURLs }}
+    | {{ .Goos }} | {{ .Goarch }} | [{{ .Name }}]({{ .URL }}) |
+    {{- end }}
+    
+    ### Installation
+    
+    #### Linux/macOS
+    ```bash
+    # Extract the archive
+    tar -xzf takhin_*_linux_x86_64.tar.gz
+    
+    # Move to system path
+    sudo mv takhin /usr/local/bin/
+    sudo mv takhin-console /usr/local/bin/
+    sudo mv takhin-cli /usr/local/bin/
+    
+    # Verify installation
+    takhin --version
+    ```
+    
+    #### Windows
+    ```powershell
+    # Extract the ZIP file and add to PATH
+    # Or use chocolatey/scoop once available
+    ```
+    
+    ### Docker Images
+    
+    ```bash
+    docker pull ghcr.io/takhin/takhin:{{ .Tag }}
+    docker pull ghcr.io/takhin/takhin:latest
+    ```
+  footer: |
+    **Full Changelog**: https://github.com/takhin/takhin/compare/{{ .PreviousTag }}...{{ .Tag }}
+    
+    ---
+    
+    ### Support
+    - 📖 [Documentation](https://takhin.io/docs)
+    - 💬 [Discussions](https://github.com/takhin/takhin/discussions)
+    - 🐛 [Report Issues](https://github.com/takhin/takhin/issues)
+
+dockers:
+  - image_templates:
+      - "ghcr.io/takhin/takhin:{{ .Version }}-amd64"
+      - "ghcr.io/takhin/takhin:latest-amd64"
+    dockerfile: deployments/Dockerfile.goreleaser
+    use: buildx
+    goos: linux
+    goarch: amd64
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+
+  - image_templates:
+      - "ghcr.io/takhin/takhin:{{ .Version }}-arm64"
+      - "ghcr.io/takhin/takhin:latest-arm64"
+    dockerfile: deployments/Dockerfile.goreleaser
+    use: buildx
+    goos: linux
+    goarch: arm64
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+
+docker_manifests:
+  - name_template: "ghcr.io/takhin/takhin:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/takhin/takhin:{{ .Version }}-amd64"
+      - "ghcr.io/takhin/takhin:{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/takhin/takhin:latest"
+    image_templates:
+      - "ghcr.io/takhin/takhin:latest-amd64"
+      - "ghcr.io/takhin/takhin:latest-arm64"
+
+brews:
+  - repository:
+      owner: takhin
+      name: homebrew-tap
+    directory: Formula
+    homepage: https://takhin.io
+    description: "Kafka-compatible streaming platform written in Go"
+    license: MIT
+    test: |
+      system "#{bin}/takhin --version"
+      system "#{bin}/takhin-cli --version"
+    install: |
+      bin.install "takhin"
+      bin.install "takhin-console"
+      bin.install "takhin-cli"
+      bin.install "takhin-debug"
+      bin.install "takhin-schema-registry"
+      etc.install "backend/configs/takhin.yaml" => "takhin/takhin.yaml"
+
+nfpms:
+  - id: takhin
+    package_name: takhin
+    vendor: Takhin
+    homepage: https://takhin.io
+    maintainer: Takhin Team <maintainers@takhin.io>
+    description: Kafka-compatible streaming platform written in Go
+    license: MIT
+    formats:
+      - deb
+      - rpm
+      - apk
+    bindir: /usr/bin
+    contents:
+      - src: backend/configs/takhin.yaml
+        dst: /etc/takhin/takhin.yaml
+        type: config
+      - src: docs/*
+        dst: /usr/share/doc/takhin/
+        type: doc
+    scripts:
+      postinstall: "scripts/package/postinstall.sh"
+      preremove: "scripts/package/preremove.sh"
+
+sboms:
+  - artifacts: archive
+
+signs:
+  - cmd: gpg
+    args:
+      - "--batch"
+      - "--local-user"
+      - "{{ .Env.GPG_FINGERPRINT }}"
+      - "--output"
+      - "${signature}"
+      - "--detach-sign"
+      - "${artifact}"
+    artifacts: checksum
+    output: true

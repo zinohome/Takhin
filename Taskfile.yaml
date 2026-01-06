@@ -23,16 +23,20 @@ tasks:
     deps: [backend:deps]
     cmds:
       - go build -o ../{{.BUILD_DIR}}/{{.BINARY_NAME}} ./cmd/takhin
+      - go build -o ../{{.BUILD_DIR}}/takhin-console ./cmd/console
       - go build -o ../{{.BUILD_DIR}}/takhin-debug ./cmd/takhin-debug
       - go build -o ../{{.BUILD_DIR}}/takhin-cli ./cmd/takhin-cli
+      - go build -o ../{{.BUILD_DIR}}/takhin-schema-registry ./cmd/schema-registry
     sources:
       - '**/*.go'
       - go.mod
       - go.sum
     generates:
       - ../{{.BUILD_DIR}}/{{.BINARY_NAME}}
+      - ../{{.BUILD_DIR}}/takhin-console
       - ../{{.BUILD_DIR}}/takhin-debug
       - ../{{.BUILD_DIR}}/takhin-cli
+      - ../{{.BUILD_DIR}}/takhin-schema-registry
 
   backend:run:
     desc: Run backend server
@@ -133,12 +137,28 @@ tasks:
     cmds:
       - ../{{.BUILD_DIR}}/takhin-debug -config configs/takhin.yaml
 
+  backend:build:all:
+    desc: Build for all platforms (Linux, macOS, Windows)
+    cmds:
+      - ./scripts/build-all.sh {{.VERSION | default "dev"}}
+
+  backend:release:snapshot:
+    desc: Create snapshot release with GoReleaser
+    cmds:
+      - goreleaser release --snapshot --clean --skip=sign
+
+  backend:release:check:
+    desc: Check GoReleaser configuration
+    cmds:
+      - goreleaser check
+
   backend:clean:
     desc: Clean backend build artifacts
     cmds:
       - rm -rf {{.BUILD_DIR}}/{{.BINARY_NAME}}
-      - rm -rf {{.BUILD_DIR}}/takhin-debug
+      - rm -rf {{.BUILD_DIR}}/takhin-*
       - rm -rf {{.BACKEND_DIR}}/coverage.out
+      - rm -rf dist/
 
   # Frontend tasks
   frontend:deps:
