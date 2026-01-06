@@ -1,6 +1,15 @@
 package handler
 
-import "github.com/takhin-data/takhin/pkg/storage/topic"
+import (
+	"errors"
+
+	"github.com/takhin-data/takhin/pkg/storage/topic"
+)
+
+var (
+	// ErrTopicNotFound indicates the requested topic does not exist
+	ErrTopicNotFound = errors.New("topic not found")
+)
 
 // Backend defines the interface for handling topic operations
 // This allows us to support both direct access and Raft-based replication
@@ -16,6 +25,9 @@ type Backend interface {
 
 	// Append appends a message to a topic partition
 	Append(topicName string, partition int32, key, value []byte) (int64, error)
+
+	// AppendBatch appends multiple messages to a topic partition in a single operation
+	AppendBatch(topicName string, partition int32, records []BatchRecord) ([]int64, error)
 }
 
 // DirectBackend implements Backend by directly calling TopicManager
@@ -46,4 +58,20 @@ func (d *DirectBackend) Append(topicName string, partition int32, key, value []b
 		return -1, ErrTopicNotFound
 	}
 	return topic.Append(partition, key, value)
+}
+
+func (d *DirectBackend) AppendBatch(topicName string, partition int32, records []BatchRecord) ([]int64, error) {
+	topic, exists := d.manager.GetTopic(topicName)
+	if !exists {
+		return nil, ErrTopicNotFound
+	}
+
+	// Convert BatchRecord to the format expected by Topic.AppendBatch
+	logRecords := make([]struct{ Key, Value []byte }, len(records))
+	for i, rec := range records {
+		logRecords[i].Key = rec.Key
+		logRecords[i].Value = rec.Value
+	}
+
+	return topic.AppendBatch(partition, logRecords)
 }

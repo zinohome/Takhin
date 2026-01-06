@@ -107,20 +107,20 @@ func TestHandleDescribeAcls(t *testing.T) {
 	// Encode DescribeAcls request
 	var buf bytes.Buffer
 	protocol.WriteInt8(&buf, int8(acl.ResourceTypeTopic))
-	
+
 	topicName := "test-topic"
 	protocol.WriteInt16(&buf, int16(len(topicName)))
 	buf.WriteString(topicName)
-	
+
 	protocol.WriteInt8(&buf, int8(acl.PatternTypeLiteral))
-	
+
 	principal := "User:alice"
 	protocol.WriteInt16(&buf, int16(len(principal)))
 	buf.WriteString(principal)
-	
+
 	protocol.WriteInt16(&buf, int16(1))
 	buf.WriteString("*")
-	
+
 	protocol.WriteInt8(&buf, -1) // Any operation
 	protocol.WriteInt8(&buf, -1) // Any permission type
 
@@ -180,20 +180,20 @@ func TestHandleDeleteAcls(t *testing.T) {
 
 	// Write filter
 	protocol.WriteInt8(&buf, int8(acl.ResourceTypeTopic))
-	
+
 	topicName := "test-topic"
 	protocol.WriteInt16(&buf, int16(len(topicName)))
 	buf.WriteString(topicName)
-	
+
 	protocol.WriteInt8(&buf, int8(acl.PatternTypeLiteral))
-	
+
 	principal := "User:alice"
 	protocol.WriteInt16(&buf, int16(len(principal)))
 	buf.WriteString(principal)
-	
+
 	protocol.WriteInt16(&buf, int16(1))
 	buf.WriteString("*")
-	
+
 	protocol.WriteInt8(&buf, -1) // Any operation
 	protocol.WriteInt8(&buf, -1) // Any permission type
 

@@ -15,8 +15,8 @@ import (
 
 // ZeroCopyFetchResponse represents a Fetch response that can be sent using zero-copy I/O.
 type ZeroCopyFetchResponse struct {
-	HeaderBytes []byte          // Pre-encoded response header and metadata
-	Segments    []FetchSegment  // File segments to send with zero-copy
+	HeaderBytes []byte         // Pre-encoded response header and metadata
+	Segments    []FetchSegment // File segments to send with zero-copy
 }
 
 // FetchSegment represents a segment of data to be sent with zero-copy.
@@ -150,7 +150,7 @@ func (h *Handler) HandleFetchZeroCopy(reqData []byte, conn net.Conn) error {
 	// Calculate total size: header + metadata + data
 	headerBytes := headerBuf.Bytes()
 	metaBytes := metaBuf.Bytes()
-	totalSize := int64(len(headerBytes) + len(metaBytes)) + totalDataSize
+	totalSize := int64(len(headerBytes)+len(metaBytes)) + totalDataSize
 
 	// Write response size (4 bytes)
 	sizeBuf := []byte{
@@ -176,7 +176,7 @@ func (h *Handler) HandleFetchZeroCopy(reqData []byte, conn net.Conn) error {
 	// Use zero-copy to transfer segments
 	tcpConn, ok := conn.(*net.TCPConn)
 	totalWritten := int64(0)
-	
+
 	if ok && len(segments) > 0 {
 		// Zero-copy path for TCP connections
 		for _, seg := range segments {

@@ -39,7 +39,7 @@ func BenchmarkTopicManagerProduceThroughput(b *testing.B) {
 					topic, exists := mgr.GetTopic("benchmark-topic")
 					require.True(b, exists)
 					require.NotNil(b, topic)
-					
+
 					partition := topic.Partitions[partitionID]
 					_, err := partition.Append(key, value)
 					if err != nil {
@@ -144,7 +144,7 @@ func BenchmarkTopicManagerConcurrentProducers(b *testing.B) {
 						require.True(b, exists)
 
 						require.NotNil(b, topic)
-						
+
 						for i := 0; i < opsPerProducer; i++ {
 							partitionID := int32((producerID + i) % partCount)
 							partition := topic.Partitions[partitionID]
@@ -216,7 +216,7 @@ func BenchmarkTopicManagerConcurrentConsumers(b *testing.B) {
 						require.True(b, exists)
 
 						require.NotNil(b, topic)
-						
+
 						for i := 0; i < opsPerConsumer; i++ {
 							partitionID := int32(rng.Intn(partCount))
 							partition := topic.Partitions[partitionID]
@@ -257,7 +257,7 @@ func BenchmarkTopicManagerPartitionBalance(b *testing.B) {
 
 			msgSize := 1024
 			value := make([]byte, msgSize)
-			
+
 			// Track writes per partition
 			partitionCounts := make(map[int32]int)
 
@@ -266,9 +266,7 @@ func BenchmarkTopicManagerPartitionBalance(b *testing.B) {
 
 			topic, exists := mgr.GetTopic("benchmark-topic")
 
-
 			require.True(b, exists)
-
 
 			require.NotNil(b, topic)
 			for i := 0; i < b.N; i++ {
@@ -283,7 +281,7 @@ func BenchmarkTopicManagerPartitionBalance(b *testing.B) {
 				if partitionID < 0 {
 					partitionID = -partitionID
 				}
-				
+
 				partition := topic.Partitions[partitionID]
 				_, err := partition.Append(key, value)
 				if err != nil {
@@ -293,7 +291,7 @@ func BenchmarkTopicManagerPartitionBalance(b *testing.B) {
 			}
 
 			b.StopTimer()
-			
+
 			// Calculate balance metrics
 			var maxCount, minCount int
 			for _, count := range partitionCounts {
@@ -304,7 +302,7 @@ func BenchmarkTopicManagerPartitionBalance(b *testing.B) {
 					minCount = count
 				}
 			}
-			
+
 			imbalance := float64(maxCount-minCount) / float64(b.N) * 100
 			b.ReportMetric(imbalance, "imbalance_%")
 			b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "msg/s")
@@ -343,7 +341,7 @@ func BenchmarkTopicManagerMultiTopic(b *testing.B) {
 				topic, exists := mgr.GetTopic(topicName)
 				require.True(b, exists)
 				require.NotNil(b, topic)
-				
+
 				partitionID := int32((i / topicCount) % partitionsPerTopic)
 				partition := topic.Partitions[partitionID]
 				_, err := partition.Append(key, value)
@@ -363,7 +361,7 @@ func BenchmarkTopicManagerMultiTopic(b *testing.B) {
 // BenchmarkTopicManagerCompaction measures compaction performance across partitions
 func BenchmarkTopicManagerCompaction(b *testing.B) {
 	partitionCounts := []int{1, 4, 8}
-	
+
 	for _, partCount := range partitionCounts {
 		name := fmt.Sprintf("partitions=%d", partCount)
 		b.Run(name, func(b *testing.B) {
@@ -402,7 +400,7 @@ func BenchmarkTopicManagerCompaction(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				var totalBytesReclaimed int64
 				var totalDurationMs int64
-				
+
 				for partID := int32(0); partID < int32(partCount); partID++ {
 					partition := topic.Partitions[partID]
 					result, err := partition.Compact(policy)

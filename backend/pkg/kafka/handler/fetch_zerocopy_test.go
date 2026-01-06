@@ -60,7 +60,7 @@ func TestHandleFetchZeroCopy_Basic(t *testing.T) {
 	if err := header.Encode(&buf); err != nil {
 		t.Fatalf("Failed to encode header: %v", err)
 	}
-	
+
 	// Write minimal fetch request fields (simplified for testing)
 	// This is a simplified test - in production use proper protocol encoding
 

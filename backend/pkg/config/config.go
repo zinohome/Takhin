@@ -38,24 +38,36 @@ type TLSConfig struct {
 	CertFile           string   `koanf:"cert.file"`
 	KeyFile            string   `koanf:"key.file"`
 	CAFile             string   `koanf:"ca.file"`
-	ClientAuth         string   `koanf:"client.auth"`         // none, request, require
-	VerifyClientCert   bool     `koanf:"verify.client.cert"`  // For mTLS
-	MinVersion         string   `koanf:"min.version"`         // TLS1.2, TLS1.3
+	ClientAuth         string   `koanf:"client.auth"`        // none, request, require
+	VerifyClientCert   bool     `koanf:"verify.client.cert"` // For mTLS
+	MinVersion         string   `koanf:"min.version"`        // TLS1.2, TLS1.3
 	CipherSuites       []string `koanf:"cipher.suites"`
 	PreferServerCipher bool     `koanf:"prefer.server.cipher"`
 }
 
 // KafkaConfig holds Kafka protocol configuration
 type KafkaConfig struct {
-	BrokerID          int      `koanf:"broker.id"`
-	Listeners         []string `koanf:"listeners"`
-	AdvertisedHost    string   `koanf:"advertised.host"`
-	AdvertisedPort    int      `koanf:"advertised.port"`
-	MaxMessageBytes   int      `koanf:"max.message.bytes"`
-	MaxConnections    int      `koanf:"max.connections"`
-	RequestTimeout    int      `koanf:"request.timeout.ms"`
-	ConnectionTimeout int      `koanf:"connection.timeout.ms"`
-	ClusterBrokers    []int    `koanf:"cluster.brokers"` // List of all broker IDs in cluster
+	BrokerID          int         `koanf:"broker.id"`
+	Listeners         []string    `koanf:"listeners"`
+	AdvertisedHost    string      `koanf:"advertised.host"`
+	AdvertisedPort    int         `koanf:"advertised.port"`
+	MaxMessageBytes   int         `koanf:"max.message.bytes"`
+	MaxConnections    int         `koanf:"max.connections"`
+	RequestTimeout    int         `koanf:"request.timeout.ms"`
+	ConnectionTimeout int         `koanf:"connection.timeout.ms"`
+	ClusterBrokers    []int       `koanf:"cluster.brokers"` // List of all broker IDs in cluster
+	Batch             BatchConfig `koanf:"batch"`           // Batch processing configuration
+}
+
+// BatchConfig holds batch processing configuration
+type BatchConfig struct {
+	MaxSize         int    `koanf:"max.size"`          // Max records per batch (0=unlimited)
+	MaxBytes        int    `koanf:"max.bytes"`         // Max bytes per batch
+	LingerMs        int    `koanf:"linger.ms"`         // Time to wait for batching
+	AdaptiveEnabled bool   `koanf:"adaptive.enabled"`  // Enable adaptive batch sizing
+	AdaptiveMinSize int    `koanf:"adaptive.min.size"` // Min batch size for adaptive mode
+	AdaptiveMaxSize int    `koanf:"adaptive.max.size"` // Max batch size for adaptive mode
+	CompressionType string `koanf:"compression.type"`  // Compression: none, gzip, snappy, lz4, zstd
 }
 
 // StorageConfig holds storage configuration
@@ -171,6 +183,23 @@ func setDefaults(cfg *Config) {
 	}
 	if cfg.Kafka.ConnectionTimeout == 0 {
 		cfg.Kafka.ConnectionTimeout = 60000
+	}
+
+	// Batch processing defaults
+	if cfg.Kafka.Batch.MaxBytes == 0 {
+		cfg.Kafka.Batch.MaxBytes = 1048576 // 1MB
+	}
+	if cfg.Kafka.Batch.LingerMs == 0 {
+		cfg.Kafka.Batch.LingerMs = 10 // 10ms
+	}
+	if cfg.Kafka.Batch.AdaptiveMinSize == 0 {
+		cfg.Kafka.Batch.AdaptiveMinSize = 16
+	}
+	if cfg.Kafka.Batch.AdaptiveMaxSize == 0 {
+		cfg.Kafka.Batch.AdaptiveMaxSize = 10000
+	}
+	if cfg.Kafka.Batch.CompressionType == "" {
+		cfg.Kafka.Batch.CompressionType = "none"
 	}
 
 	if cfg.Storage.DataDir == "" {

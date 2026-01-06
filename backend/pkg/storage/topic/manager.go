@@ -211,11 +211,11 @@ func (t *Topic) UpdateISR(partitionID int32, leaderLEO int64) []int32 {
 	if t.ISR == nil {
 		t.ISR = make(map[int32][]int32)
 	}
-	
+
 	oldISR := t.ISR[partitionID]
 	oldISRSize := len(oldISR)
 	newISRSize := len(newISR)
-	
+
 	// Track ISR changes for metrics
 	if oldISRSize > newISRSize {
 		// ISR shrunk
@@ -224,7 +224,7 @@ func (t *Topic) UpdateISR(partitionID int32, leaderLEO int64) []int32 {
 		// ISR expanded
 		t.recordISRExpandLocked(partitionID)
 	}
-	
+
 	t.ISR[partitionID] = newISR
 
 	return newISR
@@ -471,6 +471,17 @@ func (t *Topic) Append(partition int32, key, value []byte) (int64, error) {
 		return 0, fmt.Errorf("partition not found: %d", partition)
 	}
 	return log.Append(key, value)
+}
+
+// AppendBatch appends multiple messages to a topic partition in a single operation
+func (t *Topic) AppendBatch(partition int32, records []struct{ Key, Value []byte }) ([]int64, error) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	logInstance, exists := t.Partitions[partition]
+	if !exists {
+		return nil, fmt.Errorf("partition not found: %d", partition)
+	}
+	return logInstance.AppendBatch(records)
 }
 
 // Read reads a message from a topic partition

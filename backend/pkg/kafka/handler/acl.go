@@ -155,8 +155,8 @@ func (h *Handler) HandleDescribeAcls(r io.Reader, apiVersion int16) ([]byte, err
 			ResourceName: resourceNameFilter,
 		},
 		AccessFilter: acl.AccessFilter{
-			Principal:      principalFilter,
-			Host:           hostFilter,
+			Principal: principalFilter,
+			Host:      hostFilter,
 		},
 	}
 
@@ -182,7 +182,7 @@ func (h *Handler) HandleDescribeAcls(r io.Reader, apiVersion int16) ([]byte, err
 	resourceMap := make(map[string]*protocol.AclResource)
 	for _, entry := range entries {
 		key := string(entry.ResourceType) + ":" + entry.ResourceName + ":" + string(entry.PatternType)
-		
+
 		resource, exists := resourceMap[key]
 		if !exists {
 			resource = &protocol.AclResource{
@@ -282,8 +282,8 @@ func (h *Handler) HandleDeleteAcls(r io.Reader, apiVersion int16) ([]byte, error
 				ResourceName: resourceNameFilter,
 			},
 			AccessFilter: acl.AccessFilter{
-				Principal:      principalFilter,
-				Host:           hostFilter,
+				Principal: principalFilter,
+				Host:      hostFilter,
 			},
 		}
 

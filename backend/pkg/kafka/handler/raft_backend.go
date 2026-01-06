@@ -1,17 +1,11 @@
 package handler
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
 	raftlib "github.com/takhin-data/takhin/pkg/raft"
 	"github.com/takhin-data/takhin/pkg/storage/topic"
-)
-
-var (
-	// ErrTopicNotFound indicates the requested topic does not exist
-	ErrTopicNotFound = errors.New("topic not found")
 )
 
 // RaftBackend implements Backend by routing operations through Raft consensus
@@ -54,4 +48,19 @@ func (r *RaftBackend) Append(topicName string, partition int32, key, value []byt
 	}
 
 	return -1, fmt.Errorf("unexpected result type: %T", result)
+}
+
+func (r *RaftBackend) AppendBatch(topicName string, partition int32, records []BatchRecord) ([]int64, error) {
+	// For Raft backend, batch operations need to be implemented through Raft consensus
+	// For now, fall back to individual appends
+	// TODO: Implement batch consensus protocol
+	offsets := make([]int64, len(records))
+	for i, rec := range records {
+		offset, err := r.Append(topicName, partition, rec.Key, rec.Value)
+		if err != nil {
+			return offsets[:i], err
+		}
+		offsets[i] = offset
+	}
+	return offsets, nil
 }
