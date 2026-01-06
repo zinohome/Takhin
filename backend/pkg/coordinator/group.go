@@ -301,3 +301,22 @@ func (g *Group) GetMemberCount() int {
 	defer g.mu.RUnlock()
 	return len(g.Members)
 }
+
+// ResetOffset resets the offset for a topic partition
+func (g *Group) ResetOffset(topic string, partition int32, offset int64) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	if g.OffsetCommits[topic] == nil {
+		g.OffsetCommits[topic] = make(map[int32]*OffsetAndMetadata)
+	}
+
+	g.OffsetCommits[topic][partition] = &OffsetAndMetadata{
+		Offset:     offset,
+		Metadata:   "reset by CLI",
+		CommitTime: time.Now(),
+		ExpireTime: time.Now().Add(7 * 24 * time.Hour),
+	}
+
+	return nil
+}
