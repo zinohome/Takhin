@@ -51,6 +51,18 @@ tasks:
     cmds:
       - go test -v -race -short ./...
 
+  backend:test:e2e:
+    desc: Run E2E tests
+    cmds:
+      - ./scripts/run_e2e_tests.sh all
+
+  backend:test:e2e:quick:
+    desc: Run quick E2E smoke tests
+    dir: '{{.BACKEND_DIR}}'
+    cmds:
+      - go test -v -tags=e2e -timeout=10m ./tests/e2e/producer_consumer -run TestBasicProduceConsume
+      - go test -v -tags=e2e -timeout=10m ./tests/e2e/admin_api -run TestCreateTopicAPI
+
   backend:bench:
     desc: Run backend storage benchmarks
     cmds:
