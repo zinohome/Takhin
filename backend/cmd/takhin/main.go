@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/takhin-data/takhin/pkg/config"
+	"github.com/takhin-data/takhin/pkg/health"
 	"github.com/takhin-data/takhin/pkg/kafka/server"
 	"github.com/takhin-data/takhin/pkg/logger"
 	"github.com/takhin-data/takhin/pkg/metrics"
@@ -97,6 +98,18 @@ func main() {
 		log.Fatal("failed to start metrics server", "error", err)
 	}
 
+	// Start health check server
+	var healthServer *health.Server
+	if cfg.Health.Enabled {
+		healthChecker := health.NewChecker(version, topicManager)
+		healthAddr := fmt.Sprintf("%s:%d", cfg.Health.Host, cfg.Health.Port)
+		healthServer = health.NewServer(healthAddr, healthChecker)
+		if err := healthServer.Start(); err != nil {
+			log.Fatal("failed to start health check server", "error", err)
+		}
+		log.Info("started health check server", "port", cfg.Health.Port)
+	}
+
 	// Start Kafka server
 	kafkaServer := server.New(cfg, topicManager)
 	if err := kafkaServer.Start(); err != nil {
@@ -117,6 +130,13 @@ func main() {
 
 	// Graceful shutdown
 	kafkaServer.Stop()
+
+	// Stop health check server
+	if healthServer != nil {
+		if err := healthServer.Stop(); err != nil {
+			log.Error("failed to stop health check server", "error", err)
+		}
+	}
 
 	// Stop cleaner if running
 	if cleaner != nil {

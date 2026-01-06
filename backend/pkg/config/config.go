@@ -23,6 +23,7 @@ type Config struct {
 	Raft        RaftConfig        `koanf:"raft"`
 	Logging     LoggingConfig     `koanf:"logging"`
 	Metrics     MetricsConfig     `koanf:"metrics"`
+	Health      HealthConfig      `koanf:"health"`
 	ACL         ACLConfig         `koanf:"acl"`
 	Sasl        SaslConfig        `koanf:"sasl"`
 	Throttle    ThrottleConfig    `koanf:"throttle"`
@@ -128,6 +129,13 @@ type MetricsConfig struct {
 	Host    string `koanf:"host"`
 	Port    int    `koanf:"port"`
 	Path    string `koanf:"path"`
+}
+
+// HealthConfig holds health check configuration
+type HealthConfig struct {
+	Enabled bool   `koanf:"enabled"`
+	Host    string `koanf:"host"`
+	Port    int    `koanf:"port"`
 }
 
 // ACLConfig holds ACL configuration
@@ -358,6 +366,14 @@ func setDefaults(cfg *Config) {
 	}
 	if cfg.Metrics.Port == 0 {
 		cfg.Metrics.Port = 9090
+	}
+
+	// Health check defaults
+	if cfg.Health.Host == "" {
+		cfg.Health.Host = "0.0.0.0"
+	}
+	if cfg.Health.Port == 0 {
+		cfg.Health.Port = 9091
 	}
 
 	// TLS defaults

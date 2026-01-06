@@ -160,6 +160,12 @@ metrics:
   port: 9090
   path: "/metrics"
 
+# Health Check Configuration
+health:
+  enabled: true        # Enable health check HTTP server
+  host: "0.0.0.0"     # Health check server host
+  port: 9091          # Health check server port (separate from Kafka)
+
 # ACL Configuration
 acl:
   enabled: false      # Enable ACL authorization (disabled by default)

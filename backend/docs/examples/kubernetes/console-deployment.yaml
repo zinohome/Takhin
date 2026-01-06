@@ -1,0 +1,145 @@
+# Takhin Console Deployment with Health Checks
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: takhin-console
+  labels:
+    app: takhin
+    component: console
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: takhin
+      component: console
+  template:
+    metadata:
+      labels:
+        app: takhin
+        component: console
+    spec:
+      containers:
+      - name: console
+        image: takhin-console:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        env:
+        - name: DATA_DIR
+          value: "/data"
+        - name: API_ADDR
+          value: ":8080"
+        args:
+        - "-data-dir=/data"
+        - "-api-addr=:8080"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        
+        # Liveness Probe - Check if container is alive
+        livenessProbe:
+          httpGet:
+            path: /api/health/live
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        
+        # Readiness Probe - Check if container is ready for traffic
+        readinessProbe:
+          httpGet:
+            path: /api/health/ready
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 2
+          successThreshold: 1
+          failureThreshold: 3
+        
+        # Startup Probe - For slow-starting containers
+        startupProbe:
+          httpGet:
+            path: /api/health/live
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 0
+          periodSeconds: 5
+          timeoutSeconds: 2
+          successThreshold: 1
+          failureThreshold: 20  # 100 seconds max startup time
+      
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: takhin-console-data
+
+---
+# Service for Console API
+apiVersion: v1
+kind: Service
+metadata:
+  name: takhin-console
+  labels:
+    app: takhin
+    component: console
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+    protocol: TCP
+  selector:
+    app: takhin
+    component: console
+
+---
+# Ingress for external access (optional)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: takhin-console
+  labels:
+    app: takhin
+    component: console
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: takhin-console.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: takhin-console
+            port:
+              number: 8080
+
+---
+# PersistentVolumeClaim for console data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: takhin-console-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
