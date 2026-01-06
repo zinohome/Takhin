@@ -118,7 +118,7 @@ func main() {
 	}
 
 	// Create and start Console API server
-	server := console.NewServer(*apiAddr, topicManager, coord, aclStore, authConfig, auditLogger)
+	server := console.NewServer(*apiAddr, topicManager, coord, aclStore, authConfig, auditLogger, nil)
 
 	// Handle shutdown gracefully
 	go func() {

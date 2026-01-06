@@ -23,17 +23,18 @@ import (
 
 // Server represents the Console HTTP API server
 type Server struct {
-	router        *chi.Mux
-	logger        *logger.Logger
-	topicManager  *topic.Manager
-	coordinator   *coordinator.Coordinator
-	aclStore      *acl.Store
-	authConfig    AuthConfig
-	addr          string
-	healthChecker *HealthChecker
-	wsHub         *WebSocketHub
-	auditLogger   *audit.Logger
-	config        *config.Config
+	router          *chi.Mux
+	logger          *logger.Logger
+	topicManager    *topic.Manager
+	coordinator     *coordinator.Coordinator
+	aclStore        *acl.Store
+	authConfig      AuthConfig
+	addr            string
+	healthChecker   *HealthChecker
+	wsHub           *WebSocketHub
+	auditLogger     *audit.Logger
+	config          *config.Config
+	consumerManager *ConsumerManager
 }
 
 // NewServer creates a new Console API server
@@ -41,17 +42,18 @@ func NewServer(addr string, topicManager *topic.Manager, coord *coordinator.Coor
 	wsHub := NewWebSocketHub()
 	
 	s := &Server{
-		router:        chi.NewRouter(),
-		logger:        logger.Default().WithComponent("console-api"),
-		topicManager:  topicManager,
-		coordinator:   coord,
-		aclStore:      aclStore,
-		authConfig:    authConfig,
-		addr:          addr,
-		healthChecker: NewHealthChecker("1.0.0", topicManager, coord),
-		wsHub:         wsHub,
-		auditLogger:   auditLogger,
-		config:        cfg,
+		router:          chi.NewRouter(),
+		logger:          logger.Default().WithComponent("console-api"),
+		topicManager:    topicManager,
+		coordinator:     coord,
+		aclStore:        aclStore,
+		authConfig:      authConfig,
+		addr:            addr,
+		healthChecker:   NewHealthChecker("1.0.0", topicManager, coord),
+		wsHub:           wsHub,
+		auditLogger:     auditLogger,
+		config:          cfg,
+		consumerManager: NewConsumerManager(),
 	}
 
 	go wsHub.Run()
@@ -138,6 +140,17 @@ func (s *Server) setupRoutes() {
 		r.Get("/topics/{topic}", s.handleGetTopicConfig)
 		r.Put("/topics/{topic}", s.handleUpdateTopicConfig)
 		r.Put("/topics", s.handleBatchUpdateTopicConfigs)
+	})
+
+	// Consumer routes
+	s.router.Route("/api/consumers", func(r chi.Router) {
+		r.Post("/subscribe", s.handleSubscribe)
+		r.Post("/{consumer_id}/consume", s.handleConsume)
+		r.Post("/{consumer_id}/commit", s.handleCommit)
+		r.Post("/{consumer_id}/seek", s.handleSeek)
+		r.Put("/{consumer_id}/assignment", s.handleAssignment)
+		r.Get("/{consumer_id}/position", s.handlePosition)
+		r.Delete("/{consumer_id}", s.handleUnsubscribe)
 	})
 
 	// Audit routes
