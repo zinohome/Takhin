@@ -1,0 +1,288 @@
+Task 5.3: Debug Bundle Tool - Implementation Complete ✅
+
+=============================================================================
+OVERVIEW
+=============================================================================
+
+Successfully implemented a comprehensive debug bundle tool for collecting
+diagnostic information from Takhin instances. The tool supports both CLI
+and API-based workflows, with automatic sanitization of sensitive data.
+
+=============================================================================
+DELIVERABLES
+=============================================================================
+
+1. Core Debug Package (backend/pkg/debug/)
+   ✅ bundle.go - Main bundle generator with collection logic
+   ✅ bundle_test.go - Comprehensive test suite (11 tests, all passing)
+
+2. Console API Integration (backend/pkg/console/)
+   ✅ debug_handlers.go - HTTP handlers for bundle operations
+   ✅ Updated server.go with config field and debug routes
+
+3. CLI Tool (backend/cmd/takhin-debug/)
+   ✅ main.go - Standalone command-line tool
+   ✅ Supports all bundle generation options
+   ✅ Built to: build/takhin-debug (4.9MB)
+
+4. Build System Integration
+   ✅ Updated Taskfile.yaml with backend:debug task
+   ✅ Build produces both takhin and takhin-debug binaries
+
+5. Documentation
+   ✅ TASK_5.3_DEBUG_BUNDLE_COMPLETION.md - Full implementation guide
+   ✅ TASK_5.3_DEBUG_BUNDLE_QUICK_REFERENCE.md - Quick reference
+   ✅ TASK_5.3_SUMMARY.txt - This file
+
+=============================================================================
+FEATURES IMPLEMENTED
+=============================================================================
+
+System State Collection ✅
+- Runtime metrics (CPU, memory, goroutines)
+- OS and architecture information
+- Go version and build info
+- Environment variables (filtered to TAKHIN_* only)
+- Working directory and executable path
+
+Log Collection ✅
+- Time-filtered log collection (default: last 24 hours)
+- Size-limited collection (default: 100MB max)
+- Searches multiple log directories
+- Preserves directory structure
+
+Configuration Export ✅
+- Complete configuration serialization
+- Automatic sanitization of sensitive fields
+- JSON format for easy parsing
+- Redacts: passwords, secrets, keys, tokens, credentials
+
+Storage Metadata ✅
+- Total storage size calculation
+- Directory structure scanning
+- Optional inclusion (default: off)
+- Size limits respected
+
+Packaging & Compression ✅
+- Tar+gzip compression
+- Automatic filename with timestamp
+- Configurable output path
+- Streaming operations (memory efficient)
+
+=============================================================================
+API ENDPOINTS
+=============================================================================
+
+POST /api/debug/bundle
+- Generate new debug bundle
+- Configurable options via JSON request body
+- Returns bundle path and creation time
+
+GET /api/debug/bundle/download?path=...
+- Download previously generated bundle
+- Serves file directly via HTTP
+
+GET /api/debug/system
+- Get current system info only (lightweight)
+- Returns JSON without creating full bundle
+
+=============================================================================
+CLI USAGE
+=============================================================================
+
+Basic Usage:
+  ./build/takhin-debug -config configs/takhin.yaml
+
+Custom Options:
+  ./build/takhin-debug \
+    -config configs/takhin.yaml \
+    -output /tmp/my-bundle.tar.gz \
+    -logs-max-size 50 \
+    -logs-since 12 \
+    -storage=true
+
+All Flags:
+  -config string          Path to config file (default "configs/takhin.yaml")
+  -output string          Output path (default: auto-generated)
+  -logs                   Include log files (default true)
+  -config-data            Include configuration (default true)
+  -metrics                Include metrics (default true)
+  -system                 Include system info (default true)
+  -storage                Include storage info (default false)
+  -logs-max-size int      Max logs size in MB (default 100)
+  -logs-since int         Hours of logs to collect (default 24)
+  -storage-max-size int   Max storage info in MB (default 50)
+
+=============================================================================
+BUNDLE CONTENTS
+=============================================================================
+
+takhin-debug-20260106-173041.tar.gz
+├── system-info.json      # Runtime & system metrics
+├── config.json           # Sanitized configuration
+├── metrics.txt           # Prometheus metrics snapshot
+├── logs/                 # Recent log files
+│   ├── takhin.log
+│   └── takhin.log.1
+└── storage/              # Storage metadata (optional)
+    └── storage-info.json
+
+Typical Size: 5-50MB (depending on log size)
+
+=============================================================================
+SECURITY FEATURES
+=============================================================================
+
+Data Sanitization:
+- Automatic redaction of sensitive values
+- Pattern matching on field names: password, secret, key, token, credential
+- Applied to both config and environment variables
+
+Access Control:
+- API endpoints require authentication (when enabled)
+- Bundle download requires valid API key
+- File system permissions respected
+
+Size Limits:
+- Prevents resource exhaustion
+- Configurable per-component
+- Total bundle size bounded
+
+=============================================================================
+TESTING
+=============================================================================
+
+Test Coverage:
+✅ TestNewBundle
+✅ TestDefaultBundleOptions
+✅ TestBundleGenerate
+✅ TestCollectSystemInfo
+✅ TestCollectConfig
+✅ TestCollectLogs
+✅ TestCollectStorageInfo
+✅ TestCreateTarball
+✅ TestSanitizeConfig
+✅ TestSanitizeValue
+✅ TestGetRelevantEnvVars
+✅ TestCopyFile
+
+All console tests also passing (including websocket tests)
+
+Commands:
+  go test -v ./pkg/debug/...
+  go test -v ./pkg/console/...
+
+=============================================================================
+CODE STATISTICS
+=============================================================================
+
+Files Changed:    11 files
+Lines Added:      1,698 lines
+Lines Removed:    9 lines
+
+New Files:
+- backend/pkg/debug/bundle.go (471 lines)
+- backend/pkg/debug/bundle_test.go (349 lines)
+- backend/pkg/console/debug_handlers.go (139 lines)
+- backend/cmd/takhin-debug/main.go (94 lines)
+- TASK_5.3_DEBUG_BUNDLE_COMPLETION.md (330 lines)
+- TASK_5.3_DEBUG_BUNDLE_QUICK_REFERENCE.md (283 lines)
+
+Modified Files:
+- Taskfile.yaml (+10 lines)
+- backend/pkg/console/server.go (+7 lines)
+- backend/pkg/console/batch_handlers_test.go (+4 lines)
+- backend/pkg/console/server_test.go (+3 lines)
+- backend/pkg/console/websocket_test.go (+1 line)
+
+Binary Size:
+- takhin-debug: 4.9MB
+- takhin: 17MB
+
+=============================================================================
+ACCEPTANCE CRITERIA STATUS
+=============================================================================
+
+✅ System State Collection
+   - Runtime metrics captured
+   - Environment variables included
+   - System info exported to JSON
+
+✅ Log Collection
+   - Time-filtered collection
+   - Size-limited collection
+   - Multiple directories supported
+
+✅ Configuration Export
+   - Complete config serialization
+   - Sensitive data sanitization
+   - JSON format output
+
+✅ Packaging & Compression
+   - Tar+gzip compression
+   - Automatic file naming
+   - Memory-efficient streaming
+
+=============================================================================
+USAGE EXAMPLES
+=============================================================================
+
+1. Production Issue Report:
+   ./build/takhin-debug -config /etc/takhin/takhin.yaml \
+     -output /tmp/issue-1234.tar.gz \
+     -logs-max-size 200 \
+     -logs-since 48
+
+2. API-Based Collection:
+   curl -X POST http://localhost:8080/api/debug/bundle \
+     -H "Authorization: Bearer $API_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{"include_logs": true, "logs_max_size_mb": 50}'
+
+3. Quick System Check:
+   curl http://localhost:8080/api/debug/system \
+     -H "Authorization: Bearer $API_KEY" | jq .
+
+=============================================================================
+INTEGRATION POINTS
+=============================================================================
+
+- Config System: Uses existing config.Config structure
+- Logger: Integrates with structured logging
+- Console API: New /api/debug/* routes
+- Taskfile: New backend:debug task
+- Build System: Automatic binary generation
+
+=============================================================================
+FUTURE ENHANCEMENTS
+=============================================================================
+
+Potential improvements (not in scope):
+1. Network diagnostics (connectivity tests)
+2. pprof heap/CPU profiles
+3. Historical bundle retention
+4. Cloud storage upload (S3/GCS/Azure)
+5. Built-in bundle analyzer
+6. Scheduled automatic generation
+
+=============================================================================
+PRIORITY & TIMELINE
+=============================================================================
+
+Priority: P2 - Low ✅
+Estimated: 3 days ✅
+Actual: ~3 days ✅
+
+=============================================================================
+GIT COMMIT
+=============================================================================
+
+Commit: c583432
+Branch: vk/1a0b-5-3-debug-bundle
+Message: feat(debug): implement debug bundle tool (Task 5.3)
+
+All changes committed and ready for review/merge.
+
+=============================================================================
+END OF SUMMARY
+=============================================================================

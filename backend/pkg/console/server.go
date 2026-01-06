@@ -13,6 +13,7 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 	"github.com/takhin-data/takhin/pkg/acl"
 	"github.com/takhin-data/takhin/pkg/audit"
+	"github.com/takhin-data/takhin/pkg/config"
 	"github.com/takhin-data/takhin/pkg/coordinator"
 	"github.com/takhin-data/takhin/pkg/logger"
 	"github.com/takhin-data/takhin/pkg/storage/topic"
@@ -32,10 +33,11 @@ type Server struct {
 	healthChecker *HealthChecker
 	wsHub         *WebSocketHub
 	auditLogger   *audit.Logger
+	config        *config.Config
 }
 
 // NewServer creates a new Console API server
-func NewServer(addr string, topicManager *topic.Manager, coord *coordinator.Coordinator, aclStore *acl.Store, authConfig AuthConfig, auditLogger *audit.Logger) *Server {
+func NewServer(addr string, topicManager *topic.Manager, coord *coordinator.Coordinator, aclStore *acl.Store, authConfig AuthConfig, auditLogger *audit.Logger, cfg *config.Config) *Server {
 	wsHub := NewWebSocketHub()
 	
 	s := &Server{
@@ -49,6 +51,7 @@ func NewServer(addr string, topicManager *topic.Manager, coord *coordinator.Coor
 		healthChecker: NewHealthChecker("1.0.0", topicManager, coord),
 		wsHub:         wsHub,
 		auditLogger:   auditLogger,
+		config:        cfg,
 	}
 
 	go wsHub.Run()
@@ -143,6 +146,13 @@ func (s *Server) setupRoutes() {
 		r.Get("/stats", s.handleGetAuditStats)
 		r.Get("/events/{event_id}", s.handleGetAuditEvent)
 		r.Get("/export", s.handleExportAuditLogs)
+	})
+
+	// Debug routes
+	s.router.Route("/api/debug", func(r chi.Router) {
+		r.Post("/bundle", s.handleGenerateDebugBundle)
+		r.Get("/bundle/download", s.handleDownloadDebugBundle)
+		r.Get("/system", s.handleDebugSystemInfo)
 	})
 }
 

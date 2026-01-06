@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/takhin-data/takhin/pkg/config"
 	"github.com/takhin-data/takhin/pkg/coordinator"
 	"github.com/takhin-data/takhin/pkg/storage/topic"
 )
@@ -124,7 +125,7 @@ func TestBatchCreateTopics(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			server := NewServer(":8080", mgr, coord, nil, AuthConfig{Enabled: false})
+			server := NewServer(":8080", mgr, coord, nil, AuthConfig{Enabled: false}, nil, &config.Config{})
 
 			// Make request
 			body, err := json.Marshal(tt.request)
@@ -246,7 +247,7 @@ func TestBatchDeleteTopics(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			server := NewServer(":8080", mgr, coord, nil, AuthConfig{Enabled: false})
+			server := NewServer(":8080", mgr, coord, nil, AuthConfig{Enabled: false}, nil, &config.Config{})
 
 			// Make request
 			body, err := json.Marshal(tt.request)
@@ -295,7 +296,7 @@ func TestBatchCreateRollback(t *testing.T) {
 	err := mgr.CreateTopic("existing", 1)
 	require.NoError(t, err)
 
-	server := NewServer(":8080", mgr, coord, nil, AuthConfig{Enabled: false})
+	server := NewServer(":8080", mgr, coord, nil, AuthConfig{Enabled: false}, nil, &config.Config{})
 
 	// Attempt batch create where one topic already exists
 	request := BatchCreateTopicsRequest{
@@ -342,7 +343,7 @@ func TestBatchDeletePartialFailure(t *testing.T) {
 	err = mgr.CreateTopic("topic-2", 1)
 	require.NoError(t, err)
 
-	server := NewServer(":8080", mgr, coord, nil, AuthConfig{Enabled: false})
+	server := NewServer(":8080", mgr, coord, nil, AuthConfig{Enabled: false}, nil, &config.Config{})
 
 	// Try to delete existing and non-existing topics
 	request := BatchDeleteTopicsRequest{

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/takhin-data/takhin/pkg/config"
 	"github.com/takhin-data/takhin/pkg/coordinator"
 	"github.com/takhin-data/takhin/pkg/storage/topic"
 )
@@ -23,7 +24,7 @@ func TestConsoleAPI(t *testing.T) {
 	coord.Start()
 
 	authConfig := AuthConfig{Enabled: false}
-	server := NewServer(":8080", topicMgr, coord, nil, authConfig)
+	server := NewServer(":8080", topicMgr, coord, nil, authConfig, nil, &config.Config{})
 
 	t.Run("health check", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/api/health", nil)
@@ -90,7 +91,7 @@ func TestConsoleAPIErrors(t *testing.T) {
 	coord.Start()
 
 	authConfig := AuthConfig{Enabled: false}
-	server := NewServer(":8080", topicMgr, coord, nil, authConfig)
+	server := NewServer(":8080", topicMgr, coord, nil, authConfig, nil, &config.Config{})
 
 	t.Run("create topic with empty name", func(t *testing.T) {
 		reqBody := CreateTopicRequest{
@@ -197,7 +198,7 @@ func TestConsoleAPIMessages(t *testing.T) {
 	coord.Start()
 
 	authConfig := AuthConfig{Enabled: false}
-	server := NewServer(":8080", topicMgr, coord, nil, authConfig)
+	server := NewServer(":8080", topicMgr, coord, nil, authConfig, nil, &config.Config{})
 
 	// Create a topic
 	topicMgr.CreateTopic("messages-topic", 3)

@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/takhin-data/takhin/pkg/config"
 	"github.com/takhin-data/takhin/pkg/coordinator"
 	"github.com/takhin-data/takhin/pkg/storage/topic"
 )
@@ -26,7 +27,7 @@ func setupTestServerWithWS(t *testing.T) (*Server, func()) {
 		Enabled: false,
 	}
 
-	server := NewServer(":0", topicMgr, coord, nil, authConfig)
+	server := NewServer(":0", topicMgr, coord, nil, authConfig, nil, &config.Config{})
 
 	cleanup := func() {
 		server.Shutdown()
