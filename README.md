@@ -193,14 +193,35 @@ task dev:check
 
 ## 🤝 贡献
 
-请查看 [CONTRIBUTING.md](.github/copilot-instructions.md) 了解贡献指南。
+欢迎为 Takhin 做出贡献！请查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解详细的贡献指南。
 
-### 代码规范
+### 快速开始
+
+```bash
+# 1. Fork 并克隆仓库
+git clone https://github.com/YOUR_USERNAME/takhin.git
+cd takhin
+
+# 2. 创建功能分支
+git checkout -b feature/your-feature-name
+
+# 3. 进行修改并测试
+task dev:check
+
+# 4. 提交代码
+git commit -m "feat(scope): your change description"
+
+# 5. 推送并创建 PR
+git push origin feature/your-feature-name
+```
+
+### 开发规范
 
 - 遵循 [Effective Go](https://go.dev/doc/effective_go) 和 [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
-- 测试覆盖率 ≥ 80%
+- 测试覆盖率 ≥ 80%（核心模块 ≥ 90%）
 - 所有代码必须通过 golangci-lint 检查
 - 使用 Conventional Commits 提交消息
+- 查看 [快速参考](TASK_7.3_QUICK_REFERENCE.md) 了解常用命令
 
 ## 📊 开发进度
 
