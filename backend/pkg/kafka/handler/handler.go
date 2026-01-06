@@ -16,6 +16,7 @@ import (
 	"github.com/takhin-data/takhin/pkg/logger"
 	"github.com/takhin-data/takhin/pkg/replication"
 	"github.com/takhin-data/takhin/pkg/storage/topic"
+	"github.com/takhin-data/takhin/pkg/throttle"
 )
 
 // Handler handles Kafka protocol requests
@@ -31,6 +32,7 @@ type Handler struct {
 	produceWaiter     *ProduceWaiter               // Waits for ISR acknowledgment
 	aclStore          *acl.Store                   // ACL storage
 	authorizer        *acl.Authorizer              // ACL authorizer
+	throttler         *throttle.Throttler          // Network throttling
 }
 
 // New creates a new request handler with direct backend
@@ -48,6 +50,20 @@ func New(cfg *config.Config, topicMgr *topic.Manager) *Handler {
 	}
 	authorizer := acl.NewAuthorizer(aclStore, cfg.ACL.Enabled)
 
+	// Initialize throttler
+	throttler := throttle.New(&throttle.Config{
+		ProducerBytesPerSecond: cfg.Throttle.Producer.BytesPerSecond,
+		ProducerBurst:          cfg.Throttle.Producer.Burst,
+		ConsumerBytesPerSecond: cfg.Throttle.Consumer.BytesPerSecond,
+		ConsumerBurst:          cfg.Throttle.Consumer.Burst,
+		DynamicEnabled:         cfg.Throttle.Dynamic.Enabled,
+		DynamicCheckInterval:   cfg.Throttle.Dynamic.CheckIntervalMs,
+		DynamicMinRate:         cfg.Throttle.Dynamic.MinRate,
+		DynamicMaxRate:         cfg.Throttle.Dynamic.MaxRate,
+		DynamicTargetUtilPct:   cfg.Throttle.Dynamic.TargetUtilPct,
+		DynamicAdjustmentStep:  cfg.Throttle.Dynamic.AdjustmentStep,
+	})
+
 	return &Handler{
 		config:            cfg,
 		logger:            logger.Default().WithComponent("kafka-handler"),
@@ -60,6 +76,7 @@ func New(cfg *config.Config, topicMgr *topic.Manager) *Handler {
 		produceWaiter:     NewProduceWaiter(),
 		aclStore:          aclStore,
 		authorizer:        authorizer,
+		throttler:         throttler,
 	}
 }
 
@@ -78,6 +95,20 @@ func NewWithBackend(cfg *config.Config, topicMgr *topic.Manager, backend Backend
 	}
 	authorizer := acl.NewAuthorizer(aclStore, cfg.ACL.Enabled)
 
+	// Initialize throttler
+	throttler := throttle.New(&throttle.Config{
+		ProducerBytesPerSecond: cfg.Throttle.Producer.BytesPerSecond,
+		ProducerBurst:          cfg.Throttle.Producer.Burst,
+		ConsumerBytesPerSecond: cfg.Throttle.Consumer.BytesPerSecond,
+		ConsumerBurst:          cfg.Throttle.Consumer.Burst,
+		DynamicEnabled:         cfg.Throttle.Dynamic.Enabled,
+		DynamicCheckInterval:   cfg.Throttle.Dynamic.CheckIntervalMs,
+		DynamicMinRate:         cfg.Throttle.Dynamic.MinRate,
+		DynamicMaxRate:         cfg.Throttle.Dynamic.MaxRate,
+		DynamicTargetUtilPct:   cfg.Throttle.Dynamic.TargetUtilPct,
+		DynamicAdjustmentStep:  cfg.Throttle.Dynamic.AdjustmentStep,
+	})
+
 	return &Handler{
 		config:            cfg,
 		logger:            logger.Default().WithComponent("kafka-handler"),
@@ -90,6 +121,7 @@ func NewWithBackend(cfg *config.Config, topicMgr *topic.Manager, backend Backend
 		produceWaiter:     NewProduceWaiter(),
 		aclStore:          aclStore,
 		authorizer:        authorizer,
+		throttler:         throttler,
 	}
 }
 
@@ -97,6 +129,9 @@ func NewWithBackend(cfg *config.Config, topicMgr *topic.Manager, backend Backend
 func (h *Handler) Close() error {
 	if h.produceWaiter != nil {
 		h.produceWaiter.Close()
+	}
+	if h.throttler != nil {
+		h.throttler.Close()
 	}
 	return nil
 }
@@ -366,6 +401,59 @@ func (h *Handler) handleProduce(r io.Reader, header *protocol.RequestHeader) ([]
 		"acks", req.Acks,
 	)
 
+	// Calculate total bytes for throttling
+	totalBytes := 0
+	for _, topicData := range req.TopicData {
+		for _, partData := range topicData.PartitionData {
+			totalBytes += len(partData.Records)
+		}
+	}
+
+	// Apply producer throttling
+	if totalBytes > 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		
+		if err := h.throttler.AllowProducer(ctx, totalBytes); err != nil {
+			h.logger.Warn("producer throttled",
+				"correlation_id", header.CorrelationID,
+				"bytes", totalBytes,
+				"error", err,
+			)
+			// Return throttle error response
+			resp := &protocol.ProduceResponse{
+				Responses:      make([]protocol.ProduceTopicResponse, 0),
+				ThrottleTimeMs: 1000, // Indicate 1s throttle
+			}
+			for _, topicData := range req.TopicData {
+				topicResp := protocol.ProduceTopicResponse{
+					TopicName:          topicData.TopicName,
+					PartitionResponses: make([]protocol.ProducePartitionResponse, 0),
+				}
+				for _, partData := range topicData.PartitionData {
+					partResp := protocol.ProducePartitionResponse{
+						PartitionIndex: partData.PartitionIndex,
+						ErrorCode:      protocol.RequestTimedOut,
+					}
+					topicResp.PartitionResponses = append(topicResp.PartitionResponses, partResp)
+				}
+				resp.Responses = append(resp.Responses, topicResp)
+			}
+			
+			var buf bytes.Buffer
+			respHeader := &protocol.ResponseHeader{
+				CorrelationID: header.CorrelationID,
+			}
+			if err := respHeader.Encode(&buf); err != nil {
+				return nil, fmt.Errorf("encode response header: %w", err)
+			}
+			if err := resp.Encode(&buf); err != nil {
+				return nil, fmt.Errorf("encode produce response: %w", err)
+			}
+			return buf.Bytes(), nil
+		}
+	}
+
 	resp := &protocol.ProduceResponse{
 		Responses:      make([]protocol.ProduceTopicResponse, 0),
 		ThrottleTimeMs: 0,
@@ -503,6 +591,9 @@ func (h *Handler) handleFetch(r io.Reader, header *protocol.RequestHeader) ([]by
 		Responses:      make([]protocol.FetchTopicResponse, 0),
 	}
 
+	// Track total bytes for throttling
+	totalBytes := 0
+
 	for _, topicReq := range req.Topics {
 		topic, exists := h.backend.GetTopic(topicReq.TopicName)
 		if !exists {
@@ -531,6 +622,7 @@ func (h *Handler) handleFetch(r io.Reader, header *protocol.RequestHeader) ([]by
 				record, err := topic.Read(partReq.PartitionIndex, partReq.FetchOffset)
 				if err == nil && record != nil {
 					partResp.Records = record.Value
+					totalBytes += len(record.Value)
 				}
 			}
 
@@ -569,6 +661,21 @@ func (h *Handler) handleFetch(r io.Reader, header *protocol.RequestHeader) ([]by
 		}
 
 		resp.Responses = append(resp.Responses, topicResp)
+	}
+
+	// Apply consumer throttling (only for non-replica fetches)
+	if totalBytes > 0 && !isReplicaFetch {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		
+		if err := h.throttler.AllowConsumer(ctx, totalBytes); err != nil {
+			h.logger.Warn("consumer throttled",
+				"correlation_id", header.CorrelationID,
+				"bytes", totalBytes,
+				"error", err,
+			)
+			resp.ThrottleTimeMs = 1000 // Indicate 1s throttle
+		}
 	}
 
 	var buf bytes.Buffer

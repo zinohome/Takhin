@@ -582,6 +582,31 @@ var (
 			Help: "Total number of record batches discarded (not returned to pool)",
 		},
 	)
+
+	// Throttle metrics
+	ThrottleRequests = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "takhin_throttle_requests_total",
+			Help: "Total number of throttle requests by type (producer/consumer) and status (allowed/throttled)",
+		},
+		[]string{"type", "status"},
+	)
+
+	ThrottleBytes = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "takhin_throttle_bytes_total",
+			Help: "Total bytes processed by throttle by type and status",
+		},
+		[]string{"type", "status"},
+	)
+
+	ThrottleRate = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "takhin_throttle_rate_bytes_per_second",
+			Help: "Current throttle rate limit in bytes per second by type",
+		},
+		[]string{"type"},
+	)
 )
 
 type Server struct {

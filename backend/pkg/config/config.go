@@ -23,6 +23,7 @@ type Config struct {
 	Logging     LoggingConfig     `koanf:"logging"`
 	Metrics     MetricsConfig     `koanf:"metrics"`
 	ACL         ACLConfig         `koanf:"acl"`
+	Throttle    ThrottleConfig    `koanf:"throttle"`
 }
 
 // ServerConfig holds server configuration
@@ -121,6 +122,35 @@ type MetricsConfig struct {
 // ACLConfig holds ACL configuration
 type ACLConfig struct {
 	Enabled bool `koanf:"enabled"`
+}
+
+// ThrottleConfig holds throttle configuration
+type ThrottleConfig struct {
+	Producer ProducerThrottleConfig `koanf:"producer"`
+	Consumer ConsumerThrottleConfig `koanf:"consumer"`
+	Dynamic  DynamicThrottleConfig  `koanf:"dynamic"`
+}
+
+// ProducerThrottleConfig holds producer throttle configuration
+type ProducerThrottleConfig struct {
+	BytesPerSecond int64 `koanf:"bytes.per.second"`
+	Burst          int   `koanf:"burst"`
+}
+
+// ConsumerThrottleConfig holds consumer throttle configuration
+type ConsumerThrottleConfig struct {
+	BytesPerSecond int64 `koanf:"bytes.per.second"`
+	Burst          int   `koanf:"burst"`
+}
+
+// DynamicThrottleConfig holds dynamic throttle adjustment configuration
+type DynamicThrottleConfig struct {
+	Enabled         bool    `koanf:"enabled"`
+	CheckIntervalMs int     `koanf:"check.interval.ms"`
+	MinRate         int64   `koanf:"min.rate"`
+	MaxRate         int64   `koanf:"max.rate"`
+	TargetUtilPct   float64 `koanf:"target.util.pct"`
+	AdjustmentStep  float64 `koanf:"adjustment.step"`
 }
 
 // Load loads configuration from file and environment variables
@@ -287,6 +317,35 @@ func setDefaults(cfg *Config) {
 	}
 	if cfg.Server.TLS.MinVersion == "" {
 		cfg.Server.TLS.MinVersion = "TLS1.2"
+	}
+
+	// Throttle defaults
+	if cfg.Throttle.Producer.BytesPerSecond == 0 {
+		cfg.Throttle.Producer.BytesPerSecond = 10 * 1024 * 1024 // 10 MB/s
+	}
+	if cfg.Throttle.Producer.Burst == 0 {
+		cfg.Throttle.Producer.Burst = int(cfg.Throttle.Producer.BytesPerSecond * 2)
+	}
+	if cfg.Throttle.Consumer.BytesPerSecond == 0 {
+		cfg.Throttle.Consumer.BytesPerSecond = 10 * 1024 * 1024 // 10 MB/s
+	}
+	if cfg.Throttle.Consumer.Burst == 0 {
+		cfg.Throttle.Consumer.Burst = int(cfg.Throttle.Consumer.BytesPerSecond * 2)
+	}
+	if cfg.Throttle.Dynamic.CheckIntervalMs == 0 {
+		cfg.Throttle.Dynamic.CheckIntervalMs = 5000 // 5 seconds
+	}
+	if cfg.Throttle.Dynamic.MinRate == 0 {
+		cfg.Throttle.Dynamic.MinRate = 1024 * 1024 // 1 MB/s
+	}
+	if cfg.Throttle.Dynamic.MaxRate == 0 {
+		cfg.Throttle.Dynamic.MaxRate = 100 * 1024 * 1024 // 100 MB/s
+	}
+	if cfg.Throttle.Dynamic.TargetUtilPct == 0 {
+		cfg.Throttle.Dynamic.TargetUtilPct = 0.80 // 80%
+	}
+	if cfg.Throttle.Dynamic.AdjustmentStep == 0 {
+		cfg.Throttle.Dynamic.AdjustmentStep = 0.10 // 10%
 	}
 }
 

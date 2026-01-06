@@ -157,3 +157,35 @@ metrics:
 acl:
   enabled: false      # Enable ACL authorization (disabled by default)
 
+# Throttle Configuration (Network Rate Limiting)
+throttle:
+  # Producer throttling
+  producer:
+    bytes:
+      per:
+        second: 10485760    # 10 MB/s (0 = disabled)
+    burst: 20971520         # 20 MB burst capacity
+  
+  # Consumer throttling
+  consumer:
+    bytes:
+      per:
+        second: 10485760    # 10 MB/s (0 = disabled)
+    burst: 20971520         # 20 MB burst capacity
+  
+  # Dynamic rate adjustment
+  dynamic:
+    enabled: false          # Enable dynamic throttle adjustment
+    check:
+      interval:
+        ms: 5000            # Check interval for rate adjustment
+    min:
+      rate: 1048576         # Minimum rate: 1 MB/s
+    max:
+      rate: 104857600       # Maximum rate: 100 MB/s
+    target:
+      util:
+        pct: 0.80           # Target utilization: 80%
+    adjustment:
+      step: 0.10            # Adjustment step: 10%
+
