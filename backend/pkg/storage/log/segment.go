@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/takhin-data/takhin/pkg/mempool"
 )
 
 type Record struct {
@@ -112,8 +114,10 @@ func (s *Segment) Append(record *Record) (int64, error) {
 	}
 
 	if _, err := s.dataFile.Write(data); err != nil {
+		mempool.PutBuffer(data)
 		return 0, fmt.Errorf("write data: %w", err)
 	}
+	mempool.PutBuffer(data)
 
 	if err := s.writeIndex(offset, position); err != nil {
 		return 0, fmt.Errorf("write index: %w", err)
@@ -159,10 +163,10 @@ func (s *Segment) AppendBatch(records []*Record) ([]int64, error) {
 		return nil, fmt.Errorf("seek to end: %w", err)
 	}
 
-	// Pre-allocate buffer for all records
-	batchBuf := make([]byte, 0, totalSize)
-	indexBuf := make([]byte, 0, len(records)*16)
-	timeIndexBuf := make([]byte, 0, len(records)*16)
+	// Pre-allocate buffer for all records using memory pool
+	batchBuf := mempool.GetBuffer(int(totalSize))[:0]
+	indexBuf := mempool.GetBuffer(len(records) * 16)[:0]
+	timeIndexBuf := mempool.GetBuffer(len(records) * 16)[:0]
 	offsets := make([]int64, len(records))
 	currentPosition := position
 
@@ -174,39 +178,59 @@ func (s *Segment) AppendBatch(records []*Record) ([]int64, error) {
 		// Encode record
 		data, err := encodeRecord(record)
 		if err != nil {
+			mempool.PutBuffer(batchBuf)
+			mempool.PutBuffer(indexBuf)
+			mempool.PutBuffer(timeIndexBuf)
 			return nil, fmt.Errorf("encode record %d: %w", i, err)
 		}
 		batchBuf = append(batchBuf, data...)
+		mempool.PutBuffer(data) // Return immediately after use
 
 		// Prepare index entry
-		indexEntry := make([]byte, 16)
+		indexEntry := mempool.GetBuffer(16)
 		binary.BigEndian.PutUint64(indexEntry[0:8], uint64(offset))
 		binary.BigEndian.PutUint64(indexEntry[8:16], uint64(currentPosition))
 		indexBuf = append(indexBuf, indexEntry...)
+		mempool.PutBuffer(indexEntry)
 
 		// Prepare time index entry
-		timeIndexEntry := make([]byte, 16)
+		timeIndexEntry := mempool.GetBuffer(16)
 		binary.BigEndian.PutUint64(timeIndexEntry[0:8], uint64(record.Timestamp))
 		binary.BigEndian.PutUint64(timeIndexEntry[8:16], uint64(offset))
 		timeIndexBuf = append(timeIndexBuf, timeIndexEntry...)
+		mempool.PutBuffer(timeIndexEntry)
 
 		currentPosition += int64(len(data))
 	}
 
 	// Write all data at once
 	if _, err := s.dataFile.Write(batchBuf); err != nil {
+		mempool.PutBuffer(batchBuf)
+		mempool.PutBuffer(indexBuf)
+		mempool.PutBuffer(timeIndexBuf)
 		return nil, fmt.Errorf("write batch data: %w", err)
 	}
 
 	// Write all index entries at once
 	if _, err := s.indexFile.Write(indexBuf); err != nil {
+		mempool.PutBuffer(batchBuf)
+		mempool.PutBuffer(indexBuf)
+		mempool.PutBuffer(timeIndexBuf)
 		return nil, fmt.Errorf("write batch index: %w", err)
 	}
 
 	// Write all time index entries at once
 	if _, err := s.timeIndexFile.Write(timeIndexBuf); err != nil {
+		mempool.PutBuffer(batchBuf)
+		mempool.PutBuffer(indexBuf)
+		mempool.PutBuffer(timeIndexBuf)
 		return nil, fmt.Errorf("write batch time index: %w", err)
 	}
+
+	// Return buffers to pool after successful write
+	mempool.PutBuffer(batchBuf)
+	mempool.PutBuffer(indexBuf)
+	mempool.PutBuffer(timeIndexBuf)
 
 	s.nextOffset += int64(len(records))
 	return offsets, nil
@@ -339,7 +363,8 @@ func (s *Segment) Flush() error {
 }
 
 func (s *Segment) writeIndex(offset int64, position int64) error {
-	buf := make([]byte, 16)
+	buf := mempool.GetBuffer(16)
+	defer mempool.PutBuffer(buf)
 	binary.BigEndian.PutUint64(buf[0:8], uint64(offset))
 	binary.BigEndian.PutUint64(buf[8:16], uint64(position))
 	_, err := s.indexFile.Write(buf)
@@ -347,7 +372,8 @@ func (s *Segment) writeIndex(offset int64, position int64) error {
 }
 
 func (s *Segment) writeTimeIndex(timestamp int64, offset int64) error {
-	buf := make([]byte, 16)
+	buf := mempool.GetBuffer(16)
+	defer mempool.PutBuffer(buf)
 	binary.BigEndian.PutUint64(buf[0:8], uint64(timestamp))
 	binary.BigEndian.PutUint64(buf[8:16], uint64(offset))
 	_, err := s.timeIndexFile.Write(buf)
@@ -383,13 +409,15 @@ func (s *Segment) FindOffsetByTimestamp(timestamp int64) (int64, error) {
 			return 0, err
 		}
 
-		buf := make([]byte, 16)
+		buf := mempool.GetBuffer(16)
 		if _, err := io.ReadFull(s.timeIndexFile, buf); err != nil {
+			mempool.PutBuffer(buf)
 			return 0, err
 		}
 
 		midTimestamp := int64(binary.BigEndian.Uint64(buf[0:8]))
 		midOffset := int64(binary.BigEndian.Uint64(buf[8:16]))
+		mempool.PutBuffer(buf)
 
 		if midTimestamp >= timestamp {
 			result = midOffset
@@ -427,13 +455,15 @@ func (s *Segment) findPosition(offset int64) (int64, error) {
 			return 0, err
 		}
 
-		buf := make([]byte, 16)
+		buf := mempool.GetBuffer(16)
 		if _, err := io.ReadFull(s.indexFile, buf); err != nil {
+			mempool.PutBuffer(buf)
 			return 0, err
 		}
 
 		midOffset := int64(binary.BigEndian.Uint64(buf[0:8]))
 		position := int64(binary.BigEndian.Uint64(buf[8:16]))
+		mempool.PutBuffer(buf)
 
 		if midOffset == offset {
 			return position, nil
@@ -475,7 +505,7 @@ func encodeRecord(record *Record) ([]byte, error) {
 	valueLen := len(record.Value)
 	size := 4 + 8 + 8 + 4 + keyLen + 4 + valueLen
 
-	buf := make([]byte, 4+size)
+	buf := mempool.GetBuffer(4 + size)
 	binary.BigEndian.PutUint32(buf[0:4], uint32(size))
 	binary.BigEndian.PutUint64(buf[4:12], uint64(record.Offset))
 	binary.BigEndian.PutUint64(buf[12:20], uint64(record.Timestamp))
@@ -493,7 +523,9 @@ func decodeRecord(r io.Reader) (*Record, error) {
 		return nil, err
 	}
 
-	data := make([]byte, size)
+	data := mempool.GetBuffer(int(size))
+	defer mempool.PutBuffer(data)
+	
 	if _, err := io.ReadFull(r, data); err != nil {
 		return nil, err
 	}

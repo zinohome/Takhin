@@ -469,6 +469,119 @@ var (
 			Help: "Total number of PreVote requests granted",
 		},
 	)
+
+	// Memory Pool metrics
+	MemPoolBufferAllocations = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "takhin_mempool_buffer_allocations_total",
+			Help: "Total number of new buffer allocations",
+		},
+	)
+
+	MemPoolBufferGets = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "takhin_mempool_buffer_gets_total",
+			Help: "Total number of buffer gets from pool",
+		},
+	)
+
+	MemPoolBufferPuts = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "takhin_mempool_buffer_puts_total",
+			Help: "Total number of buffer puts to pool",
+		},
+	)
+
+	MemPoolBufferInUse = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "takhin_mempool_buffer_in_use",
+			Help: "Number of buffers currently in use",
+		},
+	)
+
+	MemPoolBufferOversized = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "takhin_mempool_buffer_oversized_total",
+			Help: "Total number of oversized buffers allocated outside pool",
+		},
+	)
+
+	MemPoolBufferDiscarded = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "takhin_mempool_buffer_discarded_total",
+			Help: "Total number of buffers discarded (not returned to pool)",
+		},
+	)
+
+	MemPoolRecordAllocations = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "takhin_mempool_record_allocations_total",
+			Help: "Total number of new record allocations",
+		},
+	)
+
+	MemPoolRecordGets = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "takhin_mempool_record_gets_total",
+			Help: "Total number of record gets from pool",
+		},
+	)
+
+	MemPoolRecordPuts = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "takhin_mempool_record_puts_total",
+			Help: "Total number of record puts to pool",
+		},
+	)
+
+	MemPoolRecordInUse = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "takhin_mempool_record_in_use",
+			Help: "Number of records currently in use",
+		},
+	)
+
+	MemPoolRecordBatchAllocations = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "takhin_mempool_record_batch_allocations_total",
+			Help: "Total number of new record batch allocations",
+		},
+	)
+
+	MemPoolRecordBatchGets = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "takhin_mempool_record_batch_gets_total",
+			Help: "Total number of record batch gets from pool",
+		},
+	)
+
+	MemPoolRecordBatchPuts = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "takhin_mempool_record_batch_puts_total",
+			Help: "Total number of record batch puts to pool",
+		},
+	)
+
+	MemPoolRecordBatchInUse = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "takhin_mempool_record_batch_in_use",
+			Help: "Number of record batches currently in use",
+		},
+	)
+
+	MemPoolRecordBatchOversized = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "takhin_mempool_record_batch_oversized_total",
+			Help: "Total number of oversized record batches allocated outside pool",
+		},
+	)
+
+	MemPoolRecordBatchDiscarded = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "takhin_mempool_record_batch_discarded_total",
+			Help: "Total number of record batches discarded (not returned to pool)",
+		},
+	)
 )
 
 type Server struct {
