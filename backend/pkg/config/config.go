@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strings"
 
 	"github.com/knadh/koanf/parsers/yaml"
@@ -73,16 +74,24 @@ type BatchConfig struct {
 
 // StorageConfig holds storage configuration
 type StorageConfig struct {
-	DataDir            string  `koanf:"data.dir"`
-	LogSegmentSize     int64   `koanf:"log.segment.size"`
-	LogRetentionHours  int     `koanf:"log.retention.hours"`
-	LogRetentionBytes  int64   `koanf:"log.retention.bytes"`
-	LogCleanupInterval int     `koanf:"log.cleanup.interval.ms"`
-	LogFlushInterval   int     `koanf:"log.flush.interval.ms"`
-	LogFlushMessages   int     `koanf:"log.flush.messages"`
-	CleanerEnabled     bool    `koanf:"cleaner.enabled"`
-	CompactionInterval int     `koanf:"compaction.interval.ms"`
-	MinCleanableRatio  float64 `koanf:"compaction.min.cleanable.ratio"`
+	DataDir            string           `koanf:"data.dir"`
+	LogSegmentSize     int64            `koanf:"log.segment.size"`
+	LogRetentionHours  int              `koanf:"log.retention.hours"`
+	LogRetentionBytes  int64            `koanf:"log.retention.bytes"`
+	LogCleanupInterval int              `koanf:"log.cleanup.interval.ms"`
+	LogFlushInterval   int              `koanf:"log.flush.interval.ms"`
+	LogFlushMessages   int              `koanf:"log.flush.messages"`
+	CleanerEnabled     bool             `koanf:"cleaner.enabled"`
+	CompactionInterval int              `koanf:"compaction.interval.ms"`
+	MinCleanableRatio  float64          `koanf:"compaction.min.cleanable.ratio"`
+	Encryption         EncryptionConfig `koanf:"encryption"`
+}
+
+// EncryptionConfig holds encryption at rest configuration
+type EncryptionConfig struct {
+	Enabled   bool   `koanf:"enabled"`
+	Algorithm string `koanf:"algorithm"` // none, aes-128-gcm, aes-256-gcm, chacha20-poly1305
+	KeyDir    string `koanf:"key.dir"`
 }
 
 // ReplicationConfig holds replication configuration
@@ -258,6 +267,15 @@ func setDefaults(cfg *Config) {
 	if cfg.Storage.MinCleanableRatio == 0 {
 		cfg.Storage.MinCleanableRatio = 0.5 // 50%
 	}
+	
+	// Encryption defaults
+	if cfg.Storage.Encryption.Algorithm == "" {
+		cfg.Storage.Encryption.Algorithm = "none"
+	}
+	if cfg.Storage.Encryption.KeyDir == "" {
+		cfg.Storage.Encryption.KeyDir = filepath.Join(cfg.Storage.DataDir, "keys")
+	}
+	
 	// Replication defaults
 	if cfg.Replication.DefaultReplicationFactor == 0 {
 		cfg.Replication.DefaultReplicationFactor = 1 // Single replica by default
@@ -432,6 +450,21 @@ func validate(cfg *Config) error {
 		// If client auth is required or client cert verification is enabled, CA file is required
 		if (cfg.Server.TLS.ClientAuth == "require" || cfg.Server.TLS.VerifyClientCert) && cfg.Server.TLS.CAFile == "" {
 			return fmt.Errorf("CA file is required when client authentication is required or client cert verification is enabled")
+		}
+	}
+
+	// Validate encryption configuration
+	if cfg.Storage.Encryption.Enabled {
+		validAlgorithms := map[string]bool{
+			"aes-128-gcm":        true,
+			"aes-256-gcm":        true,
+			"chacha20-poly1305":  true,
+		}
+		if !validAlgorithms[cfg.Storage.Encryption.Algorithm] {
+			return fmt.Errorf("invalid encryption algorithm: %s (must be aes-128-gcm, aes-256-gcm, or chacha20-poly1305)", cfg.Storage.Encryption.Algorithm)
+		}
+		if cfg.Storage.Encryption.KeyDir == "" {
+			return fmt.Errorf("encryption key directory is required when encryption is enabled")
 		}
 	}
 
