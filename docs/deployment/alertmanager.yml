@@ -1,0 +1,208 @@
+# AlertManager Configuration for Takhin
+# This configuration sets up alert routing and notification channels
+
+global:
+  # Default timeout for notifications
+  resolve_timeout: 5m
+  
+  # SMTP settings for email notifications
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'alerts@takhin.io'
+  smtp_auth_username: 'alerts@takhin.io'
+  smtp_auth_password: '${SMTP_PASSWORD}'  # Set via environment variable
+  smtp_require_tls: true
+  
+  # Slack webhook URL (set via environment variable)
+  slack_api_url: '${SLACK_WEBHOOK_URL}'
+
+# Route tree for alert distribution
+route:
+  # Default receiver for all alerts
+  receiver: 'team-notifications'
+  
+  # Group alerts by these labels
+  group_by: ['alertname', 'cluster', 'service']
+  
+  # Wait time before sending initial notification
+  group_wait: 10s
+  
+  # Wait time before sending notification about new alerts for the same group
+  group_interval: 10s
+  
+  # Minimum time between notifications for the same alert
+  repeat_interval: 12h
+  
+  # Child routes for specific alert handling
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 0s
+      group_interval: 5m
+      repeat_interval: 4h
+      continue: true  # Also send to default receiver
+    
+    # High severity alerts
+    - match:
+        severity: high
+      receiver: 'high-priority-alerts'
+      group_wait: 5s
+      repeat_interval: 6h
+      continue: true
+    
+    # Warning alerts - less frequent notifications
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      group_interval: 5m
+      repeat_interval: 24h
+    
+    # Storage-related alerts
+    - match:
+        category: storage
+      receiver: 'storage-team'
+      continue: true
+    
+    # Replication alerts
+    - match:
+        category: replication
+      receiver: 'replication-team'
+      continue: true
+    
+    # Consumer group alerts
+    - match:
+        category: consumer
+      receiver: 'consumer-team'
+      continue: true
+    
+    # Performance alerts (latency, throughput)
+    - match:
+        category: performance
+      receiver: 'performance-team'
+      continue: true
+
+# Inhibition rules to mute certain alerts when others are firing
+inhibit_rules:
+  # Mute warning if critical alert for same instance is firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+  
+  # Mute high severity if critical is firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'high'
+    equal: ['alertname', 'instance']
+  
+  # Mute consumer lag warnings if cluster is down
+  - source_match:
+      alertname: 'TakhinDown'
+    target_match_re:
+      alertname: 'Consumer.*Lag'
+    equal: ['cluster']
+
+# Alert receivers configuration
+receivers:
+  # Default team notifications (Slack + Email)
+  - name: 'team-notifications'
+    slack_configs:
+      - channel: '#takhin-alerts'
+        title: 'Takhin Alert: {{ .GroupLabels.alertname }}'
+        text: >-
+          {{ range .Alerts }}
+            *Alert:* {{ .Annotations.summary }}
+            *Description:* {{ .Annotations.description }}
+            *Severity:* {{ .Labels.severity }}
+            *Instance:* {{ .Labels.instance }}
+          {{ end }}
+        send_resolved: true
+    email_configs:
+      - to: 'team@takhin.io'
+        headers:
+          Subject: '[Takhin] {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>Takhin Alert: {{ .GroupLabels.alertname }}</h2>
+          {{ range .Alerts }}
+          <p><b>Summary:</b> {{ .Annotations.summary }}</p>
+          <p><b>Description:</b> {{ .Annotations.description }}</p>
+          <p><b>Severity:</b> {{ .Labels.severity }}</p>
+          <p><b>Instance:</b> {{ .Labels.instance }}</p>
+          <hr>
+          {{ end }}
+  
+  # Critical alerts - immediate Slack notification + PagerDuty
+  - name: 'critical-alerts'
+    slack_configs:
+      - channel: '#takhin-critical'
+        title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+        text: >-
+          {{ range .Alerts }}
+            *Alert:* {{ .Annotations.summary }}
+            *Description:* {{ .Annotations.description }}
+            *Instance:* {{ .Labels.instance }}
+            *Runbook:* {{ .Annotations.runbook_url }}
+          {{ end }}
+        send_resolved: true
+        color: 'danger'
+    email_configs:
+      - to: 'oncall@takhin.io'
+        headers:
+          Subject: '🚨 [CRITICAL] {{ .GroupLabels.alertname }}'
+          Priority: 'urgent'
+  
+  # High priority alerts
+  - name: 'high-priority-alerts'
+    slack_configs:
+      - channel: '#takhin-high-priority'
+        title: '⚠️  HIGH: {{ .GroupLabels.alertname }}'
+        text: >-
+          {{ range .Alerts }}
+            *Alert:* {{ .Annotations.summary }}
+            *Description:* {{ .Annotations.description }}
+            *Instance:* {{ .Labels.instance }}
+          {{ end }}
+        send_resolved: true
+        color: 'warning'
+  
+  # Warning alerts
+  - name: 'warning-alerts'
+    slack_configs:
+      - channel: '#takhin-warnings'
+        title: 'ℹ️  Warning: {{ .GroupLabels.alertname }}'
+        send_resolved: true
+  
+  # Storage team alerts
+  - name: 'storage-team'
+    email_configs:
+      - to: 'storage-team@takhin.io'
+        headers:
+          Subject: '[Takhin Storage] {{ .GroupLabels.alertname }}'
+  
+  # Replication team alerts
+  - name: 'replication-team'
+    email_configs:
+      - to: 'replication-team@takhin.io'
+        headers:
+          Subject: '[Takhin Replication] {{ .GroupLabels.alertname }}'
+  
+  # Consumer team alerts
+  - name: 'consumer-team'
+    email_configs:
+      - to: 'consumer-team@takhin.io'
+        headers:
+          Subject: '[Takhin Consumer] {{ .GroupLabels.alertname }}'
+  
+  # Performance team alerts
+  - name: 'performance-team'
+    email_configs:
+      - to: 'performance-team@takhin.io'
+        headers:
+          Subject: '[Takhin Performance] {{ .GroupLabels.alertname }}'
+
+# Templates for custom notification formatting
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'

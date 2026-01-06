@@ -1,0 +1,127 @@
+# Prometheus Configuration for Takhin with AlertManager Integration
+
+global:
+  # How frequently to scrape targets
+  scrape_interval: 15s
+  
+  # How long to wait before a scrape times out
+  scrape_timeout: 10s
+  
+  # How frequently to evaluate rules
+  evaluation_interval: 15s
+  
+  # Attach these labels to all time series or alerts
+  external_labels:
+    cluster: 'takhin-production'
+    environment: 'production'
+
+# AlertManager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'alertmanager:9093'
+      timeout: 10s
+      api_version: v2
+
+# Load alert rules
+rule_files:
+  - 'prometheus-alerts.yml'
+  - 'custom-alerts/*.yml'  # Optional custom alert rules
+
+# Scrape configurations
+scrape_configs:
+  # Takhin server metrics
+  - job_name: 'takhin'
+    static_configs:
+      - targets:
+          - 'localhost:9090'
+        labels:
+          instance: 'takhin-1'
+          cluster: 'takhin-production'
+    
+    # Relabel configurations for better metric organization
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:9090
+    
+    # Metric path (default is /metrics)
+    metrics_path: '/metrics'
+    
+    # Scrape interval override for this job
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Takhin Console API metrics
+  - job_name: 'takhin-console'
+    static_configs:
+      - targets:
+          - 'localhost:8080'
+        labels:
+          instance: 'console-1'
+          component: 'console'
+    
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets:
+          - 'localhost:9091'
+    
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # AlertManager self-monitoring
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets:
+          - 'alertmanager:9093'
+    
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Node Exporter for system metrics (optional)
+  - job_name: 'node'
+    static_configs:
+      - targets:
+          - 'localhost:9100'
+        labels:
+          node: 'takhin-node-1'
+    
+    scrape_interval: 30s
+
+# Storage configuration
+storage:
+  tsdb:
+    # Data retention period
+    retention.time: 30d
+    
+    # Maximum storage size
+    retention.size: 50GB
+    
+    # Path to store time series data
+    path: /var/lib/prometheus/data
+    
+    # Enable compression
+    wal_compression: true
+
+# Remote write configuration (optional - for long-term storage)
+# remote_write:
+#   - url: 'https://prometheus-remote-write-endpoint/api/v1/write'
+#     queue_config:
+#       capacity: 10000
+#       max_shards: 10
+#       min_shards: 1
+#       max_samples_per_send: 5000
+#       batch_send_deadline: 5s
+
+# Remote read configuration (optional)
+# remote_read:
+#   - url: 'https://prometheus-remote-read-endpoint/api/v1/read'
+#     read_recent: true

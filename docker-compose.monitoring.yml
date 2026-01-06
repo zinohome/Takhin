@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  # Takhin Server
+  takhin:
+    image: takhin:latest
+    container_name: takhin-server
+    ports:
+      - "9092:9092"  # Kafka protocol port
+      - "9090:9090"  # Metrics port
+    volumes:
+      - takhin-data:/data
+      - ./configs/takhin.yaml:/etc/takhin/takhin.yaml
+    environment:
+      - TAKHIN_SERVER_PORT=9092
+      - TAKHIN_STORAGE_DATA_DIR=/data
+      - TAKHIN_METRICS_ENABLED=true
+      - TAKHIN_METRICS_PORT=9090
+    networks:
+      - takhin-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Takhin Console
+  console:
+    image: takhin-console:latest
+    container_name: takhin-console
+    ports:
+      - "8080:8080"  # Console API port
+    volumes:
+      - console-data:/data
+    environment:
+      - CONSOLE_DATA_DIR=/data
+      - CONSOLE_API_ADDR=:8080
+      - CONSOLE_ENABLE_AUTH=true
+    networks:
+      - takhin-network
+    depends_on:
+      - takhin
+    restart: unless-stopped
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: prometheus
+    ports:
+      - "9091:9090"  # Prometheus UI
+    volumes:
+      - ./docs/deployment/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./docs/deployment/prometheus-alerts.yml:/etc/prometheus/prometheus-alerts.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=50GB'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    networks:
+      - takhin-network
+    depends_on:
+      - takhin
+      - alertmanager
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # AlertManager
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: alertmanager
+    ports:
+      - "9093:9093"  # AlertManager UI
+    volumes:
+      - ./docs/deployment/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager-data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+      - '--cluster.advertise-address=0.0.0.0:9093'
+    environment:
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+    networks:
+      - takhin-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Grafana (optional - for visualization)
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: grafana
+    ports:
+      - "3000:3000"  # Grafana UI
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docs/examples/grafana:/etc/grafana/provisioning/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+    networks:
+      - takhin-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # Node Exporter (optional - for system metrics)
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host:ro
+    networks:
+      - takhin-network
+    restart: unless-stopped
+
+volumes:
+  takhin-data:
+    driver: local
+  console-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  alertmanager-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+networks:
+  takhin-network:
+    driver: bridge

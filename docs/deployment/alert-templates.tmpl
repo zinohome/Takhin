@@ -1,0 +1,167 @@
+{{ define "slack.default.title" }}
+[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.alertname }}
+{{ end }}
+
+{{ define "slack.default.text" }}
+{{ range .Alerts }}
+{{ if .Annotations.summary }}*Summary:* {{ .Annotations.summary }}{{ end }}
+{{ if .Annotations.description }}*Description:* {{ .Annotations.description }}{{ end }}
+*Severity:* {{ .Labels.severity }}
+*Instance:* {{ .Labels.instance }}
+{{ if .Labels.topic }}*Topic:* {{ .Labels.topic }}{{ end }}
+{{ if .Labels.partition }}*Partition:* {{ .Labels.partition }}{{ end }}
+{{ if .Annotations.runbook_url }}*Runbook:* {{ .Annotations.runbook_url }}{{ end }}
+{{ if eq .Status "firing" }}*Started:* {{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}{{ end }}
+{{ if eq .Status "resolved" }}*Resolved:* {{ .EndsAt.Format "2006-01-02 15:04:05 MST" }}{{ end }}
+{{ end }}
+{{ end }}
+
+{{ define "email.default.subject" }}
+[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }} - {{ .Alerts.Firing | len }} firing
+{{ end }}
+
+{{ define "email.default.html" }}
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .header { background: #f4f4f4; padding: 20px; border-left: 5px solid #3498db; }
+        .critical { border-left-color: #e74c3c; }
+        .high { border-left-color: #f39c12; }
+        .warning { border-left-color: #f1c40f; }
+        .alert { background: #fff; border: 1px solid #ddd; padding: 15px; margin: 10px 0; }
+        .label { display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 12px; margin: 2px; }
+        .severity-critical { background: #e74c3c; color: white; }
+        .severity-high { background: #f39c12; color: white; }
+        .severity-warning { background: #f1c40f; color: #333; }
+        .metric { font-family: monospace; background: #f4f4f4; padding: 2px 5px; }
+        .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #999; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        td { padding: 8px; border-bottom: 1px solid #eee; }
+        .key { font-weight: bold; width: 150px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header {{ if eq .Status "firing" }}{{ .CommonLabels.severity }}{{ end }}">
+            <h1>{{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }} Takhin Alert: {{ .GroupLabels.alertname }}</h1>
+            <p>
+                Status: <strong>{{ .Status | toUpper }}</strong> | 
+                Firing: <strong>{{ .Alerts.Firing | len }}</strong> | 
+                Resolved: <strong>{{ .Alerts.Resolved | len }}</strong>
+            </p>
+        </div>
+
+        {{ range .Alerts }}
+        <div class="alert">
+            <h2>{{ .Annotations.summary }}</h2>
+            
+            <table>
+                {{ if .Annotations.description }}
+                <tr>
+                    <td class="key">Description</td>
+                    <td>{{ .Annotations.description }}</td>
+                </tr>
+                {{ end }}
+                
+                <tr>
+                    <td class="key">Severity</td>
+                    <td>
+                        <span class="label severity-{{ .Labels.severity }}">
+                            {{ .Labels.severity | toUpper }}
+                        </span>
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td class="key">Instance</td>
+                    <td class="metric">{{ .Labels.instance }}</td>
+                </tr>
+                
+                {{ if .Labels.cluster }}
+                <tr>
+                    <td class="key">Cluster</td>
+                    <td>{{ .Labels.cluster }}</td>
+                </tr>
+                {{ end }}
+                
+                {{ if .Labels.topic }}
+                <tr>
+                    <td class="key">Topic</td>
+                    <td class="metric">{{ .Labels.topic }}</td>
+                </tr>
+                {{ end }}
+                
+                {{ if .Labels.partition }}
+                <tr>
+                    <td class="key">Partition</td>
+                    <td>{{ .Labels.partition }}</td>
+                </tr>
+                {{ end }}
+                
+                {{ if .Labels.group_id }}
+                <tr>
+                    <td class="key">Consumer Group</td>
+                    <td class="metric">{{ .Labels.group_id }}</td>
+                </tr>
+                {{ end }}
+                
+                {{ if eq .Status "firing" }}
+                <tr>
+                    <td class="key">Started At</td>
+                    <td>{{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}</td>
+                </tr>
+                {{ end }}
+                
+                {{ if eq .Status "resolved" }}
+                <tr>
+                    <td class="key">Resolved At</td>
+                    <td>{{ .EndsAt.Format "2006-01-02 15:04:05 MST" }}</td>
+                </tr>
+                <tr>
+                    <td class="key">Duration</td>
+                    <td>{{ .EndsAt.Sub .StartsAt }}</td>
+                </tr>
+                {{ end }}
+                
+                {{ if .Annotations.runbook_url }}
+                <tr>
+                    <td class="key">Runbook</td>
+                    <td><a href="{{ .Annotations.runbook_url }}">{{ .Annotations.runbook_url }}</a></td>
+                </tr>
+                {{ end }}
+            </table>
+            
+            {{ if .Labels }}
+            <details style="margin-top: 10px;">
+                <summary style="cursor: pointer; font-weight: bold;">All Labels</summary>
+                <table style="margin-top: 10px;">
+                    {{ range .Labels.SortedPairs }}
+                    <tr>
+                        <td class="key">{{ .Name }}</td>
+                        <td class="metric">{{ .Value }}</td>
+                    </tr>
+                    {{ end }}
+                </table>
+            </details>
+            {{ end }}
+        </div>
+        {{ end }}
+
+        <div class="footer">
+            <p>
+                <strong>AlertManager:</strong> http://alertmanager:9093<br>
+                <strong>Prometheus:</strong> http://prometheus:9091<br>
+                <strong>Grafana:</strong> http://grafana:3000<br>
+            </p>
+            <p>
+                This is an automated alert from Takhin monitoring system.<br>
+                Generated at {{ .ExternalURL }}
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+{{ end }}

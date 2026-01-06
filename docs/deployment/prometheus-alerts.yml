@@ -1,0 +1,291 @@
+# Prometheus Alert Rules for Takhin
+# These rules define conditions that trigger alerts
+
+groups:
+  # Critical System Alerts
+  - name: takhin_critical_alerts
+    interval: 30s
+    rules:
+      - alert: TakhinDown
+        expr: up{job="takhin"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: system
+        annotations:
+          summary: "Takhin instance is down"
+          description: "Takhin instance {{ $labels.instance }} has been down for more than 1 minute."
+          runbook_url: "https://docs.takhin.io/runbooks/instance-down"
+      
+      - alert: TakhinHighErrorRate
+        expr: rate(takhin_kafka_request_errors_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: critical
+          category: system
+        annotations:
+          summary: "High error rate detected"
+          description: "Takhin instance {{ $labels.instance }} has error rate of {{ $value | humanize }} errors/sec for API {{ $labels.api_key }}."
+          runbook_url: "https://docs.takhin.io/runbooks/high-error-rate"
+      
+      - alert: TakhinOutOfMemory
+        expr: (takhin_go_memory_heap_alloc_bytes / takhin_go_memory_heap_sys_bytes) > 0.95
+        for: 5m
+        labels:
+          severity: critical
+          category: system
+        annotations:
+          summary: "Takhin running out of memory"
+          description: "Takhin instance {{ $labels.instance }} is using {{ $value | humanizePercentage }} of heap memory."
+          runbook_url: "https://docs.takhin.io/runbooks/out-of-memory"
+      
+      - alert: TakhinTooManyGoroutines
+        expr: takhin_go_goroutines > 10000
+        for: 10m
+        labels:
+          severity: critical
+          category: system
+        annotations:
+          summary: "Too many goroutines"
+          description: "Takhin instance {{ $labels.instance }} has {{ $value }} goroutines running. Possible goroutine leak."
+          runbook_url: "https://docs.takhin.io/runbooks/goroutine-leak"
+
+  # Storage Alerts
+  - name: takhin_storage_alerts
+    interval: 1m
+    rules:
+      - alert: TakhinDiskSpaceHigh
+        expr: (takhin_storage_disk_usage_bytes / (1024*1024*1024*100)) > 0.85
+        for: 5m
+        labels:
+          severity: high
+          category: storage
+        annotations:
+          summary: "Disk space usage is high"
+          description: "Topic {{ $labels.topic }} partition {{ $labels.partition }} is using {{ $value | humanizePercentage }} of allocated disk space."
+          runbook_url: "https://docs.takhin.io/runbooks/disk-space-high"
+      
+      - alert: TakhinDiskSpaceCritical
+        expr: (takhin_storage_disk_usage_bytes / (1024*1024*1024*100)) > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          category: storage
+        annotations:
+          summary: "Disk space critically low"
+          description: "Topic {{ $labels.topic }} partition {{ $labels.partition }} is at {{ $value | humanizePercentage }} disk usage. Immediate action required."
+          runbook_url: "https://docs.takhin.io/runbooks/disk-space-critical"
+      
+      - alert: TakhinHighIOErrorRate
+        expr: rate(takhin_storage_io_errors_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: high
+          category: storage
+        annotations:
+          summary: "High I/O error rate"
+          description: "Storage I/O errors at {{ $value | humanize }} errors/sec on {{ $labels.instance }}."
+          runbook_url: "https://docs.takhin.io/runbooks/io-errors"
+      
+      - alert: TakhinLogSegmentsTooMany
+        expr: takhin_storage_log_segments > 1000
+        for: 10m
+        labels:
+          severity: warning
+          category: storage
+        annotations:
+          summary: "Too many log segments"
+          description: "Topic {{ $labels.topic }} partition {{ $labels.partition }} has {{ $value }} log segments. Consider adjusting retention or segment size."
+          runbook_url: "https://docs.takhin.io/runbooks/too-many-segments"
+
+  # Replication Alerts
+  - name: takhin_replication_alerts
+    interval: 1m
+    rules:
+      - alert: TakhinReplicationLagHigh
+        expr: takhin_replication_lag_offsets > 1000
+        for: 5m
+        labels:
+          severity: high
+          category: replication
+        annotations:
+          summary: "High replication lag detected"
+          description: "Follower {{ $labels.follower_id }} has replication lag of {{ $value }} offsets for topic {{ $labels.topic }} partition {{ $labels.partition }}."
+          runbook_url: "https://docs.takhin.io/runbooks/replication-lag-high"
+      
+      - alert: TakhinReplicationLagCritical
+        expr: takhin_replication_lag_offsets > 10000
+        for: 2m
+        labels:
+          severity: critical
+          category: replication
+        annotations:
+          summary: "Critical replication lag"
+          description: "Follower {{ $labels.follower_id }} has critical lag of {{ $value }} offsets for topic {{ $labels.topic }} partition {{ $labels.partition }}."
+          runbook_url: "https://docs.takhin.io/runbooks/replication-lag-critical"
+      
+      - alert: TakhinISRShrunk
+        expr: takhin_replication_isr_size < takhin_replication_replica_count
+        for: 5m
+        labels:
+          severity: high
+          category: replication
+        annotations:
+          summary: "In-Sync Replica set has shrunk"
+          description: "Topic {{ $labels.topic }} partition {{ $labels.partition }} ISR size is {{ $value }}, expected {{ $labels.replica_count }}."
+          runbook_url: "https://docs.takhin.io/runbooks/isr-shrunk"
+      
+      - alert: TakhinReplicationFetchLatencyHigh
+        expr: histogram_quantile(0.99, rate(takhin_replication_fetch_latency_seconds_bucket[5m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+          category: replication
+        annotations:
+          summary: "High replication fetch latency"
+          description: "P99 replication fetch latency is {{ $value | humanizeDuration }} on {{ $labels.instance }}."
+          runbook_url: "https://docs.takhin.io/runbooks/replication-latency"
+
+  # Consumer Group Alerts
+  - name: takhin_consumer_alerts
+    interval: 1m
+    rules:
+      - alert: TakhinConsumerLagHigh
+        expr: takhin_consumer_group_lag_offsets > 10000
+        for: 10m
+        labels:
+          severity: high
+          category: consumer
+        annotations:
+          summary: "High consumer lag detected"
+          description: "Consumer group {{ $labels.group_id }} has lag of {{ $value }} offsets for topic {{ $labels.topic }} partition {{ $labels.partition }}."
+          runbook_url: "https://docs.takhin.io/runbooks/consumer-lag-high"
+      
+      - alert: TakhinConsumerLagCritical
+        expr: takhin_consumer_group_lag_offsets > 100000
+        for: 5m
+        labels:
+          severity: critical
+          category: consumer
+        annotations:
+          summary: "Critical consumer lag"
+          description: "Consumer group {{ $labels.group_id }} has critical lag of {{ $value }} offsets for topic {{ $labels.topic }} partition {{ $labels.partition }}."
+          runbook_url: "https://docs.takhin.io/runbooks/consumer-lag-critical"
+      
+      - alert: TakhinConsumerGroupRebalancing
+        expr: increase(takhin_consumer_group_rebalances_total[10m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: consumer
+        annotations:
+          summary: "Frequent consumer group rebalances"
+          description: "Consumer group {{ $labels.group_id }} has rebalanced {{ $value }} times in 10 minutes."
+          runbook_url: "https://docs.takhin.io/runbooks/frequent-rebalances"
+      
+      - alert: TakhinConsumerGroupNoMembers
+        expr: takhin_consumer_group_members == 0 and takhin_consumer_group_state != 0
+        for: 10m
+        labels:
+          severity: warning
+          category: consumer
+        annotations:
+          summary: "Consumer group has no active members"
+          description: "Consumer group {{ $labels.group_id }} has no active members but is not in Dead state."
+          runbook_url: "https://docs.takhin.io/runbooks/no-consumers"
+
+  # Performance Alerts
+  - name: takhin_performance_alerts
+    interval: 1m
+    rules:
+      - alert: TakhinProduceLatencyHigh
+        expr: histogram_quantile(0.99, rate(takhin_produce_latency_seconds_bucket[5m])) > 1
+        for: 10m
+        labels:
+          severity: high
+          category: performance
+        annotations:
+          summary: "High produce latency"
+          description: "P99 produce latency is {{ $value | humanizeDuration }} for topic {{ $labels.topic }}."
+          runbook_url: "https://docs.takhin.io/runbooks/high-produce-latency"
+      
+      - alert: TakhinFetchLatencyHigh
+        expr: histogram_quantile(0.99, rate(takhin_fetch_latency_seconds_bucket[5m])) > 1
+        for: 10m
+        labels:
+          severity: high
+          category: performance
+        annotations:
+          summary: "High fetch latency"
+          description: "P99 fetch latency is {{ $value | humanizeDuration }} for topic {{ $labels.topic }}."
+          runbook_url: "https://docs.takhin.io/runbooks/high-fetch-latency"
+      
+      - alert: TakhinRequestLatencyHigh
+        expr: histogram_quantile(0.99, rate(takhin_kafka_request_duration_seconds_bucket[5m])) > 5
+        for: 10m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "High request processing latency"
+          description: "P99 request latency is {{ $value | humanizeDuration }} for API {{ $labels.api_key }} on {{ $labels.instance }}."
+          runbook_url: "https://docs.takhin.io/runbooks/high-request-latency"
+      
+      - alert: TakhinThroughputDropped
+        expr: (rate(takhin_produce_messages_total[5m]) / rate(takhin_produce_messages_total[5m] offset 1h)) < 0.5
+        for: 10m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "Message throughput has dropped significantly"
+          description: "Current produce throughput is less than 50% of throughput 1 hour ago for topic {{ $labels.topic }}."
+          runbook_url: "https://docs.takhin.io/runbooks/throughput-dropped"
+      
+      - alert: TakhinHighConnectionCount
+        expr: takhin_connections_active > 1000
+        for: 10m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "High number of active connections"
+          description: "Instance {{ $labels.instance }} has {{ $value }} active connections."
+          runbook_url: "https://docs.takhin.io/runbooks/high-connections"
+
+  # System Resource Alerts
+  - name: takhin_resource_alerts
+    interval: 1m
+    rules:
+      - alert: TakhinHighCPUUsage
+        expr: rate(takhin_go_cpu_seconds_total[5m]) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          category: system
+        annotations:
+          summary: "High CPU usage"
+          description: "Instance {{ $labels.instance }} is using {{ $value | humanizePercentage }} CPU."
+          runbook_url: "https://docs.takhin.io/runbooks/high-cpu"
+      
+      - alert: TakhinHighGCPause
+        expr: histogram_quantile(0.99, rate(takhin_go_gc_pause_seconds_bucket[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: system
+        annotations:
+          summary: "High GC pause time"
+          description: "P99 GC pause time is {{ $value | humanizeDuration }} on {{ $labels.instance }}."
+          runbook_url: "https://docs.takhin.io/runbooks/high-gc-pause"
+      
+      - alert: TakhinMemoryLeakSuspected
+        expr: deriv(takhin_go_memory_heap_alloc_bytes[30m]) > 1048576
+        for: 1h
+        labels:
+          severity: warning
+          category: system
+        annotations:
+          summary: "Possible memory leak detected"
+          description: "Memory usage on {{ $labels.instance }} is growing at {{ $value | humanize }}B/sec over 30 minutes."
+          runbook_url: "https://docs.takhin.io/runbooks/memory-leak"
