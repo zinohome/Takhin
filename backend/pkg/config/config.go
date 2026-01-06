@@ -88,6 +88,21 @@ type StorageConfig struct {
 	CompactionInterval int              `koanf:"compaction.interval.ms"`
 	MinCleanableRatio  float64          `koanf:"compaction.min.cleanable.ratio"`
 	Encryption         EncryptionConfig `koanf:"encryption"`
+	TieredStorage      TieredConfig     `koanf:"tiered"`
+}
+
+// TieredConfig holds tiered storage configuration
+type TieredConfig struct {
+	Enabled            bool   `koanf:"enabled"`
+	S3Bucket           string `koanf:"s3.bucket"`
+	S3Region           string `koanf:"s3.region"`
+	S3Prefix           string `koanf:"s3.prefix"`
+	S3Endpoint         string `koanf:"s3.endpoint"`
+	ColdAgeHours       int    `koanf:"cold.age.hours"`
+	WarmAgeHours       int    `koanf:"warm.age.hours"`
+	ArchiveIntervalMin int    `koanf:"archive.interval.minutes"`
+	LocalCacheSizeMB   int64  `koanf:"local.cache.size.mb"`
+	AutoArchiveEnabled bool   `koanf:"auto.archive.enabled"`
 }
 
 // EncryptionConfig holds encryption at rest configuration

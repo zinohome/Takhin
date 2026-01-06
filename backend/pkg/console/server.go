@@ -16,6 +16,7 @@ import (
 	"github.com/takhin-data/takhin/pkg/config"
 	"github.com/takhin-data/takhin/pkg/coordinator"
 	"github.com/takhin-data/takhin/pkg/logger"
+	"github.com/takhin-data/takhin/pkg/storage/tiered"
 	"github.com/takhin-data/takhin/pkg/storage/topic"
 
 	_ "github.com/takhin-data/takhin/docs/swagger" // Import swagger docs
@@ -35,6 +36,7 @@ type Server struct {
 	auditLogger     *audit.Logger
 	config          *config.Config
 	consumerManager *ConsumerManager
+	tieredStorage   *tiered.TieredStorage
 }
 
 // NewServer creates a new Console API server
