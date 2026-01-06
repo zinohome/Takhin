@@ -13,8 +13,11 @@ import (
 
 // getSupportedSaslMechanisms returns all supported SASL mechanisms
 func (h *Handler) getSupportedSaslMechanisms() []string {
-	// For now, return PLAIN as the basic supported mechanism
-	// Future implementations can add SCRAM-SHA-256, SCRAM-SHA-512, etc.
+	if h.saslManager != nil {
+		return h.saslManager.SupportedMechanisms()
+	}
+	
+	// Fallback to default mechanisms if SASL not configured
 	return []string{
 		"PLAIN",
 		"SCRAM-SHA-256",
@@ -49,6 +52,8 @@ func (h *Handler) handleSaslHandshake(reader io.Reader, header *protocol.Request
 	var errorCode protocol.ErrorCode
 	if mechanismSupported {
 		errorCode = protocol.None
+		// Store the negotiated mechanism for subsequent authenticate request
+		h.currentSaslMechanism = req.Mechanism
 		logger.Info("sasl mechanism supported",
 			"component", "kafka-handler",
 			"mechanism", req.Mechanism,

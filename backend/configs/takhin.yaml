@@ -164,6 +164,32 @@ metrics:
 acl:
   enabled: false      # Enable ACL authorization (disabled by default)
 
+# SASL Authentication Configuration
+sasl:
+  enabled: false      # Enable SASL authentication (disabled by default)
+  mechanisms:         # Supported SASL mechanisms
+    - PLAIN
+    - SCRAM-SHA-256
+    - SCRAM-SHA-512
+  plain:
+    users: ""         # Path to plain users file (optional)
+  cache:
+    enabled: true     # Enable authentication cache
+    ttl:
+      seconds: 3600   # Cache TTL: 1 hour
+    max:
+      entries: 1000   # Max cached sessions
+    cleanup:
+      ms: 60000       # Cleanup interval: 1 minute
+  gssapi:
+    service:
+      name: "kafka"   # GSSAPI service name
+    keytab:
+      path: ""        # Path to keytab file
+    realm: ""         # Kerberos realm
+    validate:
+      kdc: true       # Validate against KDC
+
 # Throttle Configuration (Network Rate Limiting)
 throttle:
   # Producer throttling

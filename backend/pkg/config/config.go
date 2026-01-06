@@ -24,6 +24,7 @@ type Config struct {
 	Logging     LoggingConfig     `koanf:"logging"`
 	Metrics     MetricsConfig     `koanf:"metrics"`
 	ACL         ACLConfig         `koanf:"acl"`
+	Sasl        SaslConfig        `koanf:"sasl"`
 	Throttle    ThrottleConfig    `koanf:"throttle"`
 	Audit       AuditConfig       `koanf:"audit"`
 }
@@ -132,6 +133,21 @@ type MetricsConfig struct {
 // ACLConfig holds ACL configuration
 type ACLConfig struct {
 	Enabled bool `koanf:"enabled"`
+}
+
+// SaslConfig holds SASL authentication configuration
+type SaslConfig struct {
+	Enabled           bool     `koanf:"enabled"`
+	Mechanisms        []string `koanf:"mechanisms"` // PLAIN, SCRAM-SHA-256, SCRAM-SHA-512, GSSAPI
+	PlainUsers        string   `koanf:"plain.users"`          // Path to plain users file
+	CacheEnabled      bool     `koanf:"cache.enabled"`
+	CacheTTLSeconds   int      `koanf:"cache.ttl.seconds"`
+	CacheMaxEntries   int      `koanf:"cache.max.entries"`
+	CacheCleanupMs    int      `koanf:"cache.cleanup.ms"`
+	GssapiServiceName string   `koanf:"gssapi.service.name"`
+	GssapiKeytabPath  string   `koanf:"gssapi.keytab.path"`
+	GssapiRealm       string   `koanf:"gssapi.realm"`
+	GssapiValidateKDC bool     `koanf:"gssapi.validate.kdc"`
 }
 
 // AuditConfig holds audit log configuration
@@ -402,6 +418,23 @@ func setDefaults(cfg *Config) {
 	}
 	if cfg.Audit.StoreRetentionMs == 0 {
 		cfg.Audit.StoreRetentionMs = 7 * 24 * 60 * 60 * 1000 // 7 days
+	}
+
+	// SASL defaults
+	if len(cfg.Sasl.Mechanisms) == 0 && cfg.Sasl.Enabled {
+		cfg.Sasl.Mechanisms = []string{"PLAIN"}
+	}
+	if cfg.Sasl.CacheTTLSeconds == 0 {
+		cfg.Sasl.CacheTTLSeconds = 3600 // 1 hour
+	}
+	if cfg.Sasl.CacheMaxEntries == 0 {
+		cfg.Sasl.CacheMaxEntries = 1000
+	}
+	if cfg.Sasl.CacheCleanupMs == 0 {
+		cfg.Sasl.CacheCleanupMs = 60000 // 1 minute
+	}
+	if cfg.Sasl.GssapiServiceName == "" {
+		cfg.Sasl.GssapiServiceName = "kafka"
 	}
 }
 

@@ -15,24 +15,28 @@ import (
 	"github.com/takhin-data/takhin/pkg/kafka/protocol"
 	"github.com/takhin-data/takhin/pkg/logger"
 	"github.com/takhin-data/takhin/pkg/replication"
+	"github.com/takhin-data/takhin/pkg/sasl"
 	"github.com/takhin-data/takhin/pkg/storage/topic"
 	"github.com/takhin-data/takhin/pkg/throttle"
 )
 
 // Handler handles Kafka protocol requests
 type Handler struct {
-	config            *config.Config
-	logger            *logger.Logger
-	topicManager      *topic.Manager
-	backend           Backend
-	coordinator       *coordinator.Coordinator
-	producerIDManager *ProducerIDManager
-	txnCoordinator    *TransactionCoordinator
-	replicaAssigner   *replication.ReplicaAssigner // Replica assignment strategy
-	produceWaiter     *ProduceWaiter               // Waits for ISR acknowledgment
-	aclStore          *acl.Store                   // ACL storage
-	authorizer        *acl.Authorizer              // ACL authorizer
-	throttler         *throttle.Throttler          // Network throttling
+	config              *config.Config
+	logger              *logger.Logger
+	topicManager        *topic.Manager
+	backend             Backend
+	coordinator         *coordinator.Coordinator
+	producerIDManager   *ProducerIDManager
+	txnCoordinator      *TransactionCoordinator
+	replicaAssigner     *replication.ReplicaAssigner // Replica assignment strategy
+	produceWaiter       *ProduceWaiter               // Waits for ISR acknowledgment
+	aclStore            *acl.Store                   // ACL storage
+	authorizer          *acl.Authorizer              // ACL authorizer
+	throttler           *throttle.Throttler          // Network throttling
+	saslManager         *sasl.Manager                // SASL authentication manager
+	currentSaslMechanism string                      // Current SASL mechanism for connection
+	currentPrincipal    string                       // Current authenticated principal
 }
 
 // New creates a new request handler with direct backend
@@ -64,6 +68,12 @@ func New(cfg *config.Config, topicMgr *topic.Manager) *Handler {
 		DynamicAdjustmentStep:  cfg.Throttle.Dynamic.AdjustmentStep,
 	})
 
+	// Initialize SASL manager if enabled
+	var saslManager *sasl.Manager
+	if cfg.Sasl.Enabled {
+		saslManager = initSaslManager(cfg)
+	}
+
 	return &Handler{
 		config:            cfg,
 		logger:            logger.Default().WithComponent("kafka-handler"),
@@ -77,6 +87,7 @@ func New(cfg *config.Config, topicMgr *topic.Manager) *Handler {
 		aclStore:          aclStore,
 		authorizer:        authorizer,
 		throttler:         throttler,
+		saslManager:       saslManager,
 	}
 }
 
@@ -109,6 +120,12 @@ func NewWithBackend(cfg *config.Config, topicMgr *topic.Manager, backend Backend
 		DynamicAdjustmentStep:  cfg.Throttle.Dynamic.AdjustmentStep,
 	})
 
+	// Initialize SASL manager if enabled
+	var saslManager *sasl.Manager
+	if cfg.Sasl.Enabled {
+		saslManager = initSaslManager(cfg)
+	}
+
 	return &Handler{
 		config:            cfg,
 		logger:            logger.Default().WithComponent("kafka-handler"),
@@ -122,6 +139,7 @@ func NewWithBackend(cfg *config.Config, topicMgr *topic.Manager, backend Backend
 		aclStore:          aclStore,
 		authorizer:        authorizer,
 		throttler:         throttler,
+		saslManager:       saslManager,
 	}
 }
 
@@ -150,6 +168,66 @@ func buildBrokerList(cfg *config.Config) []int32 {
 
 	// Default: single broker (current broker)
 	return []int32{int32(cfg.Kafka.BrokerID)}
+}
+
+// initSaslManager initializes the SASL authentication manager
+func initSaslManager(cfg *config.Config) *sasl.Manager {
+	// Create user store
+	userStore := sasl.NewMemoryUserStore()
+	
+	// Add default admin user for testing (should be removed in production)
+	if err := userStore.AddUser("admin", "admin-secret", []string{"admin"}); err != nil {
+		logger.Default().Error("failed to add default admin user", "error", err)
+	}
+	
+	// Load users from file if specified
+	if cfg.Sasl.PlainUsers != "" {
+		// TODO: Load users from file
+		logger.Default().Info("SASL user file loading not yet implemented", "path", cfg.Sasl.PlainUsers)
+	}
+	
+	// Configure cache
+	cacheConfig := sasl.CacheConfig{
+		Enabled:           cfg.Sasl.CacheEnabled,
+		TTL:               time.Duration(cfg.Sasl.CacheTTLSeconds) * time.Second,
+		MaxEntries:        cfg.Sasl.CacheMaxEntries,
+		CleanupIntervalMs: cfg.Sasl.CacheCleanupMs,
+	}
+	
+	// Create manager
+	manager := sasl.NewManager(userStore, cacheConfig)
+	
+	// Register authenticators based on configured mechanisms
+	for _, mechanism := range cfg.Sasl.Mechanisms {
+		switch sasl.Mechanism(mechanism) {
+		case sasl.PLAIN:
+			manager.RegisterAuthenticator(sasl.NewPlainAuthenticator(userStore))
+			logger.Default().Info("registered SASL PLAIN authenticator")
+			
+		case sasl.SCRAM_SHA_256:
+			manager.RegisterAuthenticator(sasl.NewScramSHA256Authenticator(userStore))
+			logger.Default().Info("registered SASL SCRAM-SHA-256 authenticator")
+			
+		case sasl.SCRAM_SHA_512:
+			manager.RegisterAuthenticator(sasl.NewScramSHA512Authenticator(userStore))
+			logger.Default().Info("registered SASL SCRAM-SHA-512 authenticator")
+			
+		case sasl.GSSAPI:
+			auth := sasl.NewGSSAPIAuthenticator(
+				cfg.Sasl.GssapiServiceName,
+				cfg.Sasl.GssapiKeytabPath,
+				cfg.Sasl.GssapiRealm,
+				cfg.Sasl.GssapiValidateKDC,
+			)
+			manager.RegisterAuthenticator(auth)
+			logger.Default().Info("registered SASL GSSAPI authenticator (placeholder)")
+			
+		default:
+			logger.Default().Warn("unknown SASL mechanism", "mechanism", mechanism)
+		}
+	}
+	
+	return manager
 }
 
 // HandleRequest processes a Kafka request and returns a response
