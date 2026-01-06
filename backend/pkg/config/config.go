@@ -25,6 +25,7 @@ type Config struct {
 	Metrics     MetricsConfig     `koanf:"metrics"`
 	ACL         ACLConfig         `koanf:"acl"`
 	Throttle    ThrottleConfig    `koanf:"throttle"`
+	Audit       AuditConfig       `koanf:"audit"`
 }
 
 // ServerConfig holds server configuration
@@ -131,6 +132,20 @@ type MetricsConfig struct {
 // ACLConfig holds ACL configuration
 type ACLConfig struct {
 	Enabled bool `koanf:"enabled"`
+}
+
+// AuditConfig holds audit log configuration
+type AuditConfig struct {
+	Enabled          bool   `koanf:"enabled"`
+	OutputPath       string `koanf:"output.path"`
+	MaxFileSize      int64  `koanf:"max.file.size"`
+	MaxBackups       int    `koanf:"max.backups"`
+	MaxAge           int    `koanf:"max.age"`
+	Compress         bool   `koanf:"compress"`
+	BufferSize       int    `koanf:"buffer.size"`
+	FlushIntervalMs  int    `koanf:"flush.interval.ms"`
+	StoreEnabled     bool   `koanf:"store.enabled"`
+	StoreRetentionMs int64  `koanf:"store.retention.ms"`
 }
 
 // ThrottleConfig holds throttle configuration
@@ -364,6 +379,29 @@ func setDefaults(cfg *Config) {
 	}
 	if cfg.Throttle.Dynamic.AdjustmentStep == 0 {
 		cfg.Throttle.Dynamic.AdjustmentStep = 0.10 // 10%
+	}
+
+	// Audit defaults
+	if cfg.Audit.OutputPath == "" {
+		cfg.Audit.OutputPath = filepath.Join(cfg.Storage.DataDir, "audit", "audit.log")
+	}
+	if cfg.Audit.MaxFileSize == 0 {
+		cfg.Audit.MaxFileSize = 100 * 1024 * 1024 // 100MB
+	}
+	if cfg.Audit.MaxBackups == 0 {
+		cfg.Audit.MaxBackups = 10
+	}
+	if cfg.Audit.MaxAge == 0 {
+		cfg.Audit.MaxAge = 30 // 30 days
+	}
+	if cfg.Audit.BufferSize == 0 {
+		cfg.Audit.BufferSize = 1000
+	}
+	if cfg.Audit.FlushIntervalMs == 0 {
+		cfg.Audit.FlushIntervalMs = 1000 // 1 second
+	}
+	if cfg.Audit.StoreRetentionMs == 0 {
+		cfg.Audit.StoreRetentionMs = 7 * 24 * 60 * 60 * 1000 // 7 days
 	}
 }
 

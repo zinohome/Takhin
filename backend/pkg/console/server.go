@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/cors"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 	"github.com/takhin-data/takhin/pkg/acl"
+	"github.com/takhin-data/takhin/pkg/audit"
 	"github.com/takhin-data/takhin/pkg/coordinator"
 	"github.com/takhin-data/takhin/pkg/logger"
 	"github.com/takhin-data/takhin/pkg/storage/topic"
@@ -30,10 +31,11 @@ type Server struct {
 	addr          string
 	healthChecker *HealthChecker
 	wsHub         *WebSocketHub
+	auditLogger   *audit.Logger
 }
 
 // NewServer creates a new Console API server
-func NewServer(addr string, topicManager *topic.Manager, coord *coordinator.Coordinator, aclStore *acl.Store, authConfig AuthConfig) *Server {
+func NewServer(addr string, topicManager *topic.Manager, coord *coordinator.Coordinator, aclStore *acl.Store, authConfig AuthConfig, auditLogger *audit.Logger) *Server {
 	wsHub := NewWebSocketHub()
 	
 	s := &Server{
@@ -46,6 +48,7 @@ func NewServer(addr string, topicManager *topic.Manager, coord *coordinator.Coor
 		addr:          addr,
 		healthChecker: NewHealthChecker("1.0.0", topicManager, coord),
 		wsHub:         wsHub,
+		auditLogger:   auditLogger,
 	}
 
 	go wsHub.Run()
@@ -132,6 +135,14 @@ func (s *Server) setupRoutes() {
 		r.Get("/topics/{topic}", s.handleGetTopicConfig)
 		r.Put("/topics/{topic}", s.handleUpdateTopicConfig)
 		r.Put("/topics", s.handleBatchUpdateTopicConfigs)
+	})
+
+	// Audit routes
+	s.router.Route("/api/audit", func(r chi.Router) {
+		r.Post("/logs", s.handleQueryAuditLogs)
+		r.Get("/stats", s.handleGetAuditStats)
+		r.Get("/events/{event_id}", s.handleGetAuditEvent)
+		r.Get("/export", s.handleExportAuditLogs)
 	})
 }
 

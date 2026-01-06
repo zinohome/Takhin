@@ -44,6 +44,7 @@ import (
 	"syscall"
 
 	"github.com/takhin-data/takhin/pkg/acl"
+	"github.com/takhin-data/takhin/pkg/audit"
 	"github.com/takhin-data/takhin/pkg/console"
 	"github.com/takhin-data/takhin/pkg/coordinator"
 	"github.com/takhin-data/takhin/pkg/logger"
@@ -56,6 +57,8 @@ func main() {
 	apiAddr := flag.String("api-addr", ":8080", "Console API server address")
 	enableAuth := flag.Bool("enable-auth", false, "Enable API key authentication")
 	apiKeys := flag.String("api-keys", "", "Comma-separated list of valid API keys")
+	enableAudit := flag.Bool("enable-audit", false, "Enable audit logging")
+	auditPath := flag.String("audit-path", "", "Path to audit log file (default: <data-dir>/audit/audit.log)")
 	flag.Parse()
 
 	// Initialize logger
@@ -86,14 +89,36 @@ func main() {
 		log.Error("failed to load ACLs", "error", err)
 	}
 
+	// Initialize audit logger
+	var auditLogger *audit.Logger
+	if *enableAudit {
+		auditConfig := audit.Config{
+			Enabled:      true,
+			OutputPath:   getAuditPath(*dataDir, *auditPath),
+			MaxFileSize:  100 * 1024 * 1024, // 100MB
+			MaxBackups:   10,
+			MaxAge:       30,
+			Compress:     true,
+			StoreEnabled: true,
+		}
+		var err error
+		auditLogger, err = audit.NewLogger(auditConfig)
+		if err != nil {
+			log.Fatal("failed to create audit logger", "error", err)
+		}
+		defer auditLogger.Close()
+		log.Info("audit logging enabled", "path", auditConfig.OutputPath)
+	}
+
 	// Configure authentication
 	authConfig := console.AuthConfig{
-		Enabled: *enableAuth,
-		APIKeys: parseAPIKeys(*apiKeys),
+		Enabled:     *enableAuth,
+		APIKeys:     parseAPIKeys(*apiKeys),
+		AuditLogger: auditLogger,
 	}
 
 	// Create and start Console API server
-	server := console.NewServer(*apiAddr, topicManager, coord, aclStore, authConfig)
+	server := console.NewServer(*apiAddr, topicManager, coord, aclStore, authConfig, auditLogger)
 
 	// Handle shutdown gracefully
 	go func() {
@@ -126,4 +151,12 @@ func parseAPIKeys(keys string) []string {
 		}
 	}
 	return result
+}
+
+// getAuditPath returns the audit log path, using the provided path or default
+func getAuditPath(dataDir, auditPath string) string {
+	if auditPath != "" {
+		return auditPath
+	}
+	return dataDir + "/audit/audit.log"
 }

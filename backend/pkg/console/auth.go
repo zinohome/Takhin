@@ -5,12 +5,15 @@ package console
 import (
 	"net/http"
 	"strings"
+
+	"github.com/takhin-data/takhin/pkg/audit"
 )
 
 // AuthConfig holds authentication configuration
 type AuthConfig struct {
-	Enabled bool     // Enable authentication
-	APIKeys []string // Valid API keys
+	Enabled     bool     // Enable authentication
+	APIKeys     []string // Valid API keys
+	AuditLogger *audit.Logger // Audit logger (optional)
 }
 
 // AuthMiddleware creates an authentication middleware
@@ -32,6 +35,10 @@ func AuthMiddleware(config AuthConfig) func(http.Handler) http.Handler {
 			// Extract API key from Authorization header
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
+				// Log failed auth attempt
+				if config.AuditLogger != nil {
+					config.AuditLogger.LogAuth("unknown", r.RemoteAddr, "failure", "", nil)
+				}
 				respondError(w, http.StatusUnauthorized, "missing authorization header")
 				return
 			}
@@ -44,8 +51,17 @@ func AuthMiddleware(config AuthConfig) func(http.Handler) http.Handler {
 
 			// Validate API key
 			if !isValidAPIKey(apiKey, config.APIKeys) {
+				// Log failed auth attempt
+				if config.AuditLogger != nil {
+					config.AuditLogger.LogAuth("unknown", r.RemoteAddr, "failure", apiKey, nil)
+				}
 				respondError(w, http.StatusUnauthorized, "invalid API key")
 				return
+			}
+
+			// Log successful auth
+			if config.AuditLogger != nil {
+				config.AuditLogger.LogAuth("api-key-user", r.RemoteAddr, "success", apiKey, nil)
 			}
 
 			// API key is valid, proceed to next handler

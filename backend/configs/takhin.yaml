@@ -196,3 +196,24 @@ throttle:
     adjustment:
       step: 0.10            # Adjustment step: 10%
 
+
+# Audit Log Configuration
+audit:
+  enabled: false                # Enable audit logging
+  output:
+    path: ""                    # Path to audit log file (default: <data-dir>/audit/audit.log)
+  max:
+    file:
+      size: 104857600           # 100MB max file size before rotation
+    backups: 10                 # Max number of backup files to keep
+    age: 30                     # Max age in days to keep backups
+  compress: true                # Compress rotated files
+  buffer:
+    size: 1000                  # Buffer size for async writes
+  flush:
+    interval:
+      ms: 1000                  # Flush interval in milliseconds
+  store:
+    enabled: true               # Enable queryable in-memory store
+    retention:
+      ms: 604800000             # Store retention: 7 days (in milliseconds)
