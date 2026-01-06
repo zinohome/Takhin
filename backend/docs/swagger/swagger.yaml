@@ -1,6 +1,130 @@
 basePath: /api
 definitions:
-  pkg_console.ComponentHealth:
+  console.AclEntryRequest:
+    properties:
+      host:
+        type: string
+      operation:
+        type: string
+      pattern_type:
+        type: string
+      permission_type:
+        type: string
+      principal:
+        type: string
+      resource_name:
+        type: string
+      resource_type:
+        type: string
+    type: object
+  console.AclFilterRequest:
+    properties:
+      host:
+        type: string
+      operation:
+        type: string
+      pattern_type:
+        type: string
+      permission_type:
+        type: string
+      principal:
+        type: string
+      resource_name:
+        type: string
+      resource_type:
+        type: string
+    type: object
+  console.BatchCreateTopicsRequest:
+    properties:
+      topics:
+        items:
+          $ref: '#/definitions/console.CreateTopicRequest'
+        type: array
+    type: object
+  console.BatchDeleteTopicsRequest:
+    properties:
+      topics:
+        items:
+          type: string
+        type: array
+    type: object
+  console.BatchOperationResult:
+    properties:
+      errors:
+        items:
+          type: string
+        type: array
+      failed:
+        type: integer
+      results:
+        items:
+          $ref: '#/definitions/console.SingleOperationResult'
+        type: array
+      successful:
+        type: integer
+      totalRequested:
+        type: integer
+    type: object
+  console.BatchUpdateTopicConfigsRequest:
+    properties:
+      config:
+        $ref: '#/definitions/console.UpdateTopicConfigRequest'
+      topics:
+        items:
+          type: string
+        type: array
+    type: object
+  console.ClusterConfig:
+    properties:
+      advertisedHost:
+        type: string
+      advertisedPort:
+        type: integer
+      brokerId:
+        type: integer
+      connectionTimeoutMs:
+        type: integer
+      dataDir:
+        type: string
+      listeners:
+        items:
+          type: string
+        type: array
+      logRetentionBytes:
+        type: integer
+      logRetentionHours:
+        type: integer
+      logSegmentSize:
+        type: integer
+      maxConnections:
+        type: integer
+      maxMessageBytes:
+        type: integer
+      metricsEnabled:
+        type: boolean
+      metricsPort:
+        type: integer
+      requestTimeoutMs:
+        type: integer
+    type: object
+  console.ClusterHealthMetrics:
+    properties:
+      activeConnections:
+        type: integer
+      diskUsageBytes:
+        type: integer
+      goroutineCount:
+        type: integer
+      memoryUsageBytes:
+        type: integer
+      totalConsumers:
+        type: integer
+      totalPartitions:
+        type: integer
+      totalTopics:
+        type: integer
+    type: object
+  console.ComponentHealth:
     properties:
       details:
         additionalProperties: true
@@ -8,19 +132,19 @@ definitions:
       message:
         type: string
       status:
-        $ref: '#/definitions/pkg_console.HealthStatus'
+        $ref: '#/definitions/console.HealthStatus'
     type: object
-  pkg_console.ConsumerGroupDetail:
+  console.ConsumerGroupDetail:
     properties:
       groupId:
         type: string
       members:
         items:
-          $ref: '#/definitions/pkg_console.ConsumerGroupMember'
+          $ref: '#/definitions/console.ConsumerGroupMember'
         type: array
       offsetCommits:
         items:
-          $ref: '#/definitions/pkg_console.ConsumerGroupOffsetCommit'
+          $ref: '#/definitions/console.ConsumerGroupOffsetCommit'
         type: array
       protocol:
         type: string
@@ -29,7 +153,18 @@ definitions:
       state:
         type: string
     type: object
-  pkg_console.ConsumerGroupMember:
+  console.ConsumerGroupLag:
+    properties:
+      groupId:
+        type: string
+      topicLags:
+        items:
+          $ref: '#/definitions/console.TopicLag'
+        type: array
+      totalLag:
+        type: integer
+    type: object
+  console.ConsumerGroupMember:
     properties:
       clientHost:
         type: string
@@ -42,7 +177,7 @@ definitions:
           type: integer
         type: array
     type: object
-  pkg_console.ConsumerGroupOffsetCommit:
+  console.ConsumerGroupOffsetCommit:
     properties:
       metadata:
         type: string
@@ -53,7 +188,7 @@ definitions:
       topic:
         type: string
     type: object
-  pkg_console.ConsumerGroupSummary:
+  console.ConsumerGroupSummary:
     properties:
       groupId:
         type: string
@@ -62,23 +197,23 @@ definitions:
       state:
         type: string
     type: object
-  pkg_console.CreateTopicRequest:
+  console.CreateTopicRequest:
     properties:
       name:
         type: string
       partitions:
         type: integer
     type: object
-  pkg_console.HealthCheck:
+  console.HealthCheck:
     properties:
       components:
         additionalProperties:
-          $ref: '#/definitions/pkg_console.ComponentHealth'
+          $ref: '#/definitions/console.ComponentHealth'
         type: object
       status:
-        $ref: '#/definitions/pkg_console.HealthStatus'
+        $ref: '#/definitions/console.HealthStatus'
       system_info:
-        $ref: '#/definitions/pkg_console.SystemInfo'
+        $ref: '#/definitions/console.SystemInfo'
       timestamp:
         type: string
       uptime:
@@ -86,7 +221,7 @@ definitions:
       version:
         type: string
     type: object
-  pkg_console.HealthStatus:
+  console.HealthStatus:
     enum:
     - healthy
     - degraded
@@ -96,7 +231,22 @@ definitions:
     - HealthStatusHealthy
     - HealthStatusDegraded
     - HealthStatusUnhealthy
-  pkg_console.Message:
+  console.LatencyMetrics:
+    properties:
+      fetchP50:
+        type: number
+      fetchP95:
+        type: number
+      fetchP99:
+        type: number
+      produceP50:
+        type: number
+      produceP95:
+        type: number
+      produceP99:
+        type: number
+    type: object
+  console.Message:
     properties:
       key:
         type: string
@@ -109,14 +259,44 @@ definitions:
       value:
         type: string
     type: object
-  pkg_console.PartitionInfo:
+  console.MonitoringMetrics:
+    properties:
+      clusterHealth:
+        $ref: '#/definitions/console.ClusterHealthMetrics'
+      consumerLags:
+        items:
+          $ref: '#/definitions/console.ConsumerGroupLag'
+        type: array
+      latency:
+        $ref: '#/definitions/console.LatencyMetrics'
+      throughput:
+        $ref: '#/definitions/console.ThroughputMetrics'
+      timestamp:
+        type: integer
+      topicStats:
+        items:
+          $ref: '#/definitions/console.TopicStats'
+        type: array
+    type: object
+  console.PartitionInfo:
     properties:
       highWaterMark:
         type: integer
       id:
         type: integer
     type: object
-  pkg_console.ProduceMessageRequest:
+  console.PartitionLag:
+    properties:
+      currentOffset:
+        type: integer
+      lag:
+        type: integer
+      logEndOffset:
+        type: integer
+      partition:
+        type: integer
+    type: object
+  console.ProduceMessageRequest:
     properties:
       key:
         type: string
@@ -125,7 +305,18 @@ definitions:
       value:
         type: string
     type: object
-  pkg_console.SystemInfo:
+  console.SingleOperationResult:
+    properties:
+      error:
+        type: string
+      partitions:
+        type: integer
+      resource:
+        type: string
+      success:
+        type: boolean
+    type: object
+  console.SystemInfo:
     properties:
       go_version:
         type: string
@@ -136,7 +327,39 @@ definitions:
       num_goroutines:
         type: integer
     type: object
-  pkg_console.TopicDetail:
+  console.ThroughputMetrics:
+    properties:
+      fetchBytes:
+        type: number
+      fetchRate:
+        type: number
+      produceBytes:
+        type: number
+      produceRate:
+        type: number
+    type: object
+  console.TopicConfig:
+    properties:
+      cleanupPolicy:
+        type: string
+      compressionType:
+        type: string
+      customConfigs:
+        additionalProperties:
+          type: string
+        type: object
+      maxMessageBytes:
+        type: integer
+      minInSyncReplicas:
+        type: integer
+      name:
+        type: string
+      retentionMs:
+        type: integer
+      segmentMs:
+        type: integer
+    type: object
+  console.TopicDetail:
     properties:
       name:
         type: string
@@ -144,10 +367,36 @@ definitions:
         type: integer
       partitions:
         items:
-          $ref: '#/definitions/pkg_console.PartitionInfo'
+          $ref: '#/definitions/console.PartitionInfo'
         type: array
     type: object
-  pkg_console.TopicSummary:
+  console.TopicLag:
+    properties:
+      partitionLags:
+        items:
+          $ref: '#/definitions/console.PartitionLag'
+        type: array
+      topic:
+        type: string
+      totalLag:
+        type: integer
+    type: object
+  console.TopicStats:
+    properties:
+      fetchRate:
+        type: number
+      name:
+        type: string
+      partitions:
+        type: integer
+      produceRate:
+        type: number
+      totalBytes:
+        type: integer
+      totalMessages:
+        type: integer
+    type: object
+  console.TopicSummary:
     properties:
       name:
         type: string
@@ -155,8 +404,44 @@ definitions:
         type: integer
       partitions:
         items:
-          $ref: '#/definitions/pkg_console.PartitionInfo'
+          $ref: '#/definitions/console.PartitionInfo'
         type: array
+    type: object
+  console.UpdateClusterConfigRequest:
+    properties:
+      connectionTimeoutMs:
+        type: integer
+      logRetentionHours:
+        type: integer
+      maxConnections:
+        type: integer
+      maxMessageBytes:
+        type: integer
+      requestTimeoutMs:
+        type: integer
+    type: object
+  console.UpdateTopicConfigRequest:
+    properties:
+      cleanupPolicy:
+        type: string
+      compressionType:
+        type: string
+      maxMessageBytes:
+        type: integer
+      minInSyncReplicas:
+        type: integer
+      retentionMs:
+        type: integer
+      segmentMs:
+        type: integer
+    type: object
+  console.WebSocketMessage:
+    properties:
+      data: {}
+      timestamp:
+        type: integer
+      type:
+        type: string
     type: object
 host: localhost:8080
 info:
@@ -173,6 +458,251 @@ info:
   title: Takhin Console API
   version: "1.0"
 paths:
+  /api/acls:
+    delete:
+      consumes:
+      - application/json
+      description: Delete ACL entries matching the filter
+      parameters:
+      - description: Filter for ACLs to delete
+        in: body
+        name: filter
+        required: true
+        schema:
+          $ref: '#/definitions/console.AclFilterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ACLs deleted
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete ACLs
+      tags:
+      - ACL
+    get:
+      consumes:
+      - application/json
+      description: Get all ACL entries, optionally filtered
+      parameters:
+      - description: Resource type filter (Topic, Group, Cluster)
+        in: query
+        name: resource_type
+        type: string
+      - description: Resource name filter
+        in: query
+        name: resource_name
+        type: string
+      - description: Principal filter
+        in: query
+        name: principal
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ACL entries
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List ACLs
+      tags:
+      - ACL
+    post:
+      consumes:
+      - application/json
+      description: Create a new ACL entry
+      parameters:
+      - description: ACL entry to create
+        in: body
+        name: acl
+        required: true
+        schema:
+          $ref: '#/definitions/console.AclEntryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: ACL created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: ACL already exists
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create ACL
+      tags:
+      - ACL
+  /configs/cluster:
+    get:
+      description: Retrieve current cluster-level configuration settings
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/console.ClusterConfig'
+      security:
+      - ApiKeyAuth: []
+      summary: Get cluster configuration
+      tags:
+      - Configuration
+    put:
+      consumes:
+      - application/json
+      description: Update cluster-level configuration settings
+      parameters:
+      - description: Configuration update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/console.UpdateClusterConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/console.ClusterConfig'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update cluster configuration
+      tags:
+      - Configuration
+  /configs/topics:
+    put:
+      consumes:
+      - application/json
+      description: Update configuration for multiple topics at once
+      parameters:
+      - description: Batch update request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/console.BatchUpdateTopicConfigsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Batch update topic configurations
+      tags:
+      - Configuration
+  /configs/topics/{topic}:
+    get:
+      description: Retrieve configuration for a specific topic
+      parameters:
+      - description: Topic name
+        in: path
+        name: topic
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/console.TopicConfig'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get topic configuration
+      tags:
+      - Configuration
+    put:
+      consumes:
+      - application/json
+      description: Update configuration for a specific topic
+      parameters:
+      - description: Topic name
+        in: path
+        name: topic
+        required: true
+        type: string
+      - description: Configuration update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/console.UpdateTopicConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/console.TopicConfig'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update topic configuration
+      tags:
+      - Configuration
   /consumer-groups:
     get:
       description: Get a list of all consumer groups with their status
@@ -183,7 +713,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/pkg_console.ConsumerGroupSummary'
+              $ref: '#/definitions/console.ConsumerGroupSummary'
             type: array
       security:
       - ApiKeyAuth: []
@@ -205,7 +735,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/pkg_console.ConsumerGroupDetail'
+            $ref: '#/definitions/console.ConsumerGroupDetail'
         "404":
           description: Not Found
           schema:
@@ -226,7 +756,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/pkg_console.HealthCheck'
+            $ref: '#/definitions/console.HealthCheck'
       summary: Health check
       tags:
       - Health
@@ -267,6 +797,38 @@ paths:
       summary: Readiness check
       tags:
       - Health
+  /monitoring/metrics:
+    get:
+      description: Get real-time cluster monitoring metrics including throughput,
+        latency, and consumer lag
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/console.MonitoringMetrics'
+      security:
+      - ApiKeyAuth: []
+      summary: Get monitoring metrics
+      tags:
+      - Monitoring
+  /monitoring/ws:
+    get:
+      description: Establishes a WebSocket connection for real-time monitoring metrics
+        updates
+      produces:
+      - application/json
+      responses:
+        "101":
+          description: Switching Protocols - WebSocket established
+          schema:
+            $ref: '#/definitions/console.WebSocketMessage'
+      security:
+      - ApiKeyAuth: []
+      summary: WebSocket monitoring stream
+      tags:
+      - Monitoring
   /topics:
     get:
       description: Get a list of all topics with their partition information
@@ -277,7 +839,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/pkg_console.TopicSummary'
+              $ref: '#/definitions/console.TopicSummary'
             type: array
       security:
       - ApiKeyAuth: []
@@ -294,7 +856,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/pkg_console.CreateTopicRequest'
+          $ref: '#/definitions/console.CreateTopicRequest'
       produces:
       - application/json
       responses:
@@ -358,7 +920,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/pkg_console.TopicDetail'
+            $ref: '#/definitions/console.TopicDetail'
         "404":
           description: Not Found
           schema:
@@ -401,7 +963,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/pkg_console.Message'
+              $ref: '#/definitions/console.Message'
             type: array
         "400":
           description: Bad Request
@@ -435,7 +997,7 @@ paths:
         name: message
         required: true
         schema:
-          $ref: '#/definitions/pkg_console.ProduceMessageRequest'
+          $ref: '#/definitions/console.ProduceMessageRequest'
       produces:
       - application/json
       responses:
@@ -467,6 +1029,65 @@ paths:
       summary: Produce a message to a topic
       tags:
       - Messages
+  /topics/batch:
+    delete:
+      consumes:
+      - application/json
+      description: Delete multiple topics in a single operation
+      parameters:
+      - description: Batch delete request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/console.BatchDeleteTopicsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/console.BatchOperationResult'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Batch delete topics
+      tags:
+      - Topics
+    post:
+      consumes:
+      - application/json
+      description: Create multiple topics in a single transactional operation
+      parameters:
+      - description: Batch create request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/console.BatchCreateTopicsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/console.BatchOperationResult'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Batch create topics
+      tags:
+      - Topics
 schemes:
 - http
 - https

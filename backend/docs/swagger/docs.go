@@ -24,6 +24,383 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/acls": {
+            "get": {
+                "description": "Get all ACL entries, optionally filtered",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ACL"
+                ],
+                "summary": "List ACLs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource type filter (Topic, Group, Cluster)",
+                        "name": "resource_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Resource name filter",
+                        "name": "resource_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Principal filter",
+                        "name": "principal",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "ACL entries",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new ACL entry",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ACL"
+                ],
+                "summary": "Create ACL",
+                "parameters": [
+                    {
+                        "description": "ACL entry to create",
+                        "name": "acl",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/console.AclEntryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "ACL created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "ACL already exists",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete ACL entries matching the filter",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ACL"
+                ],
+                "summary": "Delete ACLs",
+                "parameters": [
+                    {
+                        "description": "Filter for ACLs to delete",
+                        "name": "filter",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/console.AclFilterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "ACLs deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/configs/cluster": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieve current cluster-level configuration settings",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Configuration"
+                ],
+                "summary": "Get cluster configuration",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/console.ClusterConfig"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update cluster-level configuration settings",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Configuration"
+                ],
+                "summary": "Update cluster configuration",
+                "parameters": [
+                    {
+                        "description": "Configuration update",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/console.UpdateClusterConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/console.ClusterConfig"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/configs/topics": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update configuration for multiple topics at once",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Configuration"
+                ],
+                "summary": "Batch update topic configurations",
+                "parameters": [
+                    {
+                        "description": "Batch update request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/console.BatchUpdateTopicConfigsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/configs/topics/{topic}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieve configuration for a specific topic",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Configuration"
+                ],
+                "summary": "Get topic configuration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Topic name",
+                        "name": "topic",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/console.TopicConfig"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update configuration for a specific topic",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Configuration"
+                ],
+                "summary": "Update topic configuration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Topic name",
+                        "name": "topic",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Configuration update",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/console.UpdateTopicConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/console.TopicConfig"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/consumer-groups": {
             "get": {
                 "security": [
@@ -45,7 +422,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/pkg_console.ConsumerGroupSummary"
+                                "$ref": "#/definitions/console.ConsumerGroupSummary"
                             }
                         }
                     }
@@ -80,7 +457,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/pkg_console.ConsumerGroupDetail"
+                            "$ref": "#/definitions/console.ConsumerGroupDetail"
                         }
                     },
                     "404": {
@@ -109,7 +486,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/pkg_console.HealthCheck"
+                            "$ref": "#/definitions/console.HealthCheck"
                         }
                     }
                 }
@@ -170,6 +547,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/monitoring/metrics": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get real-time cluster monitoring metrics including throughput, latency, and consumer lag",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Monitoring"
+                ],
+                "summary": "Get monitoring metrics",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/console.MonitoringMetrics"
+                        }
+                    }
+                }
+            }
+        },
+        "/monitoring/ws": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Establishes a WebSocket connection for real-time monitoring metrics updates",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Monitoring"
+                ],
+                "summary": "WebSocket monitoring stream",
+                "responses": {
+                    "101": {
+                        "description": "Switching Protocols - WebSocket established",
+                        "schema": {
+                            "$ref": "#/definitions/console.WebSocketMessage"
+                        }
+                    }
+                }
+            }
+        },
         "/topics": {
             "get": {
                 "security": [
@@ -191,7 +618,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/pkg_console.TopicSummary"
+                                "$ref": "#/definitions/console.TopicSummary"
                             }
                         }
                     }
@@ -221,7 +648,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/pkg_console.CreateTopicRequest"
+                            "$ref": "#/definitions/console.CreateTopicRequest"
                         }
                     }
                 ],
@@ -246,6 +673,100 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/topics/batch": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Create multiple topics in a single transactional operation",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Topics"
+                ],
+                "summary": "Batch create topics",
+                "parameters": [
+                    {
+                        "description": "Batch create request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/console.BatchCreateTopicsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/console.BatchOperationResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Delete multiple topics in a single operation",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Topics"
+                ],
+                "summary": "Batch delete topics",
+                "parameters": [
+                    {
+                        "description": "Batch delete request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/console.BatchDeleteTopicsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/console.BatchOperationResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -284,7 +805,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/pkg_console.TopicDetail"
+                            "$ref": "#/definitions/console.TopicDetail"
                         }
                     },
                     "404": {
@@ -385,7 +906,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/pkg_console.Message"
+                                "$ref": "#/definitions/console.Message"
                             }
                         }
                     },
@@ -440,7 +961,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/pkg_console.ProduceMessageRequest"
+                            "$ref": "#/definitions/console.ProduceMessageRequest"
                         }
                     }
                 ],
@@ -484,7 +1005,197 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "pkg_console.ComponentHealth": {
+        "console.AclEntryRequest": {
+            "type": "object",
+            "properties": {
+                "host": {
+                    "type": "string"
+                },
+                "operation": {
+                    "type": "string"
+                },
+                "pattern_type": {
+                    "type": "string"
+                },
+                "permission_type": {
+                    "type": "string"
+                },
+                "principal": {
+                    "type": "string"
+                },
+                "resource_name": {
+                    "type": "string"
+                },
+                "resource_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "console.AclFilterRequest": {
+            "type": "object",
+            "properties": {
+                "host": {
+                    "type": "string"
+                },
+                "operation": {
+                    "type": "string"
+                },
+                "pattern_type": {
+                    "type": "string"
+                },
+                "permission_type": {
+                    "type": "string"
+                },
+                "principal": {
+                    "type": "string"
+                },
+                "resource_name": {
+                    "type": "string"
+                },
+                "resource_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "console.BatchCreateTopicsRequest": {
+            "type": "object",
+            "properties": {
+                "topics": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/console.CreateTopicRequest"
+                    }
+                }
+            }
+        },
+        "console.BatchDeleteTopicsRequest": {
+            "type": "object",
+            "properties": {
+                "topics": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "console.BatchOperationResult": {
+            "type": "object",
+            "properties": {
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/console.SingleOperationResult"
+                    }
+                },
+                "successful": {
+                    "type": "integer"
+                },
+                "totalRequested": {
+                    "type": "integer"
+                }
+            }
+        },
+        "console.BatchUpdateTopicConfigsRequest": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "$ref": "#/definitions/console.UpdateTopicConfigRequest"
+                },
+                "topics": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "console.ClusterConfig": {
+            "type": "object",
+            "properties": {
+                "advertisedHost": {
+                    "type": "string"
+                },
+                "advertisedPort": {
+                    "type": "integer"
+                },
+                "brokerId": {
+                    "type": "integer"
+                },
+                "connectionTimeoutMs": {
+                    "type": "integer"
+                },
+                "dataDir": {
+                    "type": "string"
+                },
+                "listeners": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "logRetentionBytes": {
+                    "type": "integer"
+                },
+                "logRetentionHours": {
+                    "type": "integer"
+                },
+                "logSegmentSize": {
+                    "type": "integer"
+                },
+                "maxConnections": {
+                    "type": "integer"
+                },
+                "maxMessageBytes": {
+                    "type": "integer"
+                },
+                "metricsEnabled": {
+                    "type": "boolean"
+                },
+                "metricsPort": {
+                    "type": "integer"
+                },
+                "requestTimeoutMs": {
+                    "type": "integer"
+                }
+            }
+        },
+        "console.ClusterHealthMetrics": {
+            "type": "object",
+            "properties": {
+                "activeConnections": {
+                    "type": "integer"
+                },
+                "diskUsageBytes": {
+                    "type": "integer"
+                },
+                "goroutineCount": {
+                    "type": "integer"
+                },
+                "memoryUsageBytes": {
+                    "type": "integer"
+                },
+                "totalConsumers": {
+                    "type": "integer"
+                },
+                "totalPartitions": {
+                    "type": "integer"
+                },
+                "totalTopics": {
+                    "type": "integer"
+                }
+            }
+        },
+        "console.ComponentHealth": {
             "type": "object",
             "properties": {
                 "details": {
@@ -495,11 +1206,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
-                    "$ref": "#/definitions/pkg_console.HealthStatus"
+                    "$ref": "#/definitions/console.HealthStatus"
                 }
             }
         },
-        "pkg_console.ConsumerGroupDetail": {
+        "console.ConsumerGroupDetail": {
             "type": "object",
             "properties": {
                 "groupId": {
@@ -508,13 +1219,13 @@ const docTemplate = `{
                 "members": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/pkg_console.ConsumerGroupMember"
+                        "$ref": "#/definitions/console.ConsumerGroupMember"
                     }
                 },
                 "offsetCommits": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/pkg_console.ConsumerGroupOffsetCommit"
+                        "$ref": "#/definitions/console.ConsumerGroupOffsetCommit"
                     }
                 },
                 "protocol": {
@@ -528,7 +1239,24 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.ConsumerGroupMember": {
+        "console.ConsumerGroupLag": {
+            "type": "object",
+            "properties": {
+                "groupId": {
+                    "type": "string"
+                },
+                "topicLags": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/console.TopicLag"
+                    }
+                },
+                "totalLag": {
+                    "type": "integer"
+                }
+            }
+        },
+        "console.ConsumerGroupMember": {
             "type": "object",
             "properties": {
                 "clientHost": {
@@ -548,7 +1276,7 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.ConsumerGroupOffsetCommit": {
+        "console.ConsumerGroupOffsetCommit": {
             "type": "object",
             "properties": {
                 "metadata": {
@@ -565,7 +1293,7 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.ConsumerGroupSummary": {
+        "console.ConsumerGroupSummary": {
             "type": "object",
             "properties": {
                 "groupId": {
@@ -579,7 +1307,7 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.CreateTopicRequest": {
+        "console.CreateTopicRequest": {
             "type": "object",
             "properties": {
                 "name": {
@@ -590,20 +1318,20 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.HealthCheck": {
+        "console.HealthCheck": {
             "type": "object",
             "properties": {
                 "components": {
                     "type": "object",
                     "additionalProperties": {
-                        "$ref": "#/definitions/pkg_console.ComponentHealth"
+                        "$ref": "#/definitions/console.ComponentHealth"
                     }
                 },
                 "status": {
-                    "$ref": "#/definitions/pkg_console.HealthStatus"
+                    "$ref": "#/definitions/console.HealthStatus"
                 },
                 "system_info": {
-                    "$ref": "#/definitions/pkg_console.SystemInfo"
+                    "$ref": "#/definitions/console.SystemInfo"
                 },
                 "timestamp": {
                     "type": "string"
@@ -616,7 +1344,7 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.HealthStatus": {
+        "console.HealthStatus": {
             "type": "string",
             "enum": [
                 "healthy",
@@ -629,7 +1357,30 @@ const docTemplate = `{
                 "HealthStatusUnhealthy"
             ]
         },
-        "pkg_console.Message": {
+        "console.LatencyMetrics": {
+            "type": "object",
+            "properties": {
+                "fetchP50": {
+                    "type": "number"
+                },
+                "fetchP95": {
+                    "type": "number"
+                },
+                "fetchP99": {
+                    "type": "number"
+                },
+                "produceP50": {
+                    "type": "number"
+                },
+                "produceP95": {
+                    "type": "number"
+                },
+                "produceP99": {
+                    "type": "number"
+                }
+            }
+        },
+        "console.Message": {
             "type": "object",
             "properties": {
                 "key": {
@@ -649,7 +1400,36 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.PartitionInfo": {
+        "console.MonitoringMetrics": {
+            "type": "object",
+            "properties": {
+                "clusterHealth": {
+                    "$ref": "#/definitions/console.ClusterHealthMetrics"
+                },
+                "consumerLags": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/console.ConsumerGroupLag"
+                    }
+                },
+                "latency": {
+                    "$ref": "#/definitions/console.LatencyMetrics"
+                },
+                "throughput": {
+                    "$ref": "#/definitions/console.ThroughputMetrics"
+                },
+                "timestamp": {
+                    "type": "integer"
+                },
+                "topicStats": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/console.TopicStats"
+                    }
+                }
+            }
+        },
+        "console.PartitionInfo": {
             "type": "object",
             "properties": {
                 "highWaterMark": {
@@ -660,7 +1440,24 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.ProduceMessageRequest": {
+        "console.PartitionLag": {
+            "type": "object",
+            "properties": {
+                "currentOffset": {
+                    "type": "integer"
+                },
+                "lag": {
+                    "type": "integer"
+                },
+                "logEndOffset": {
+                    "type": "integer"
+                },
+                "partition": {
+                    "type": "integer"
+                }
+            }
+        },
+        "console.ProduceMessageRequest": {
             "type": "object",
             "properties": {
                 "key": {
@@ -674,7 +1471,24 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.SystemInfo": {
+        "console.SingleOperationResult": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "partitions": {
+                    "type": "integer"
+                },
+                "resource": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "console.SystemInfo": {
             "type": "object",
             "properties": {
                 "go_version": {
@@ -691,7 +1505,56 @@ const docTemplate = `{
                 }
             }
         },
-        "pkg_console.TopicDetail": {
+        "console.ThroughputMetrics": {
+            "type": "object",
+            "properties": {
+                "fetchBytes": {
+                    "type": "number"
+                },
+                "fetchRate": {
+                    "type": "number"
+                },
+                "produceBytes": {
+                    "type": "number"
+                },
+                "produceRate": {
+                    "type": "number"
+                }
+            }
+        },
+        "console.TopicConfig": {
+            "type": "object",
+            "properties": {
+                "cleanupPolicy": {
+                    "type": "string"
+                },
+                "compressionType": {
+                    "type": "string"
+                },
+                "customConfigs": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "maxMessageBytes": {
+                    "type": "integer"
+                },
+                "minInSyncReplicas": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "retentionMs": {
+                    "type": "integer"
+                },
+                "segmentMs": {
+                    "type": "integer"
+                }
+            }
+        },
+        "console.TopicDetail": {
             "type": "object",
             "properties": {
                 "name": {
@@ -703,12 +1566,52 @@ const docTemplate = `{
                 "partitions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/pkg_console.PartitionInfo"
+                        "$ref": "#/definitions/console.PartitionInfo"
                     }
                 }
             }
         },
-        "pkg_console.TopicSummary": {
+        "console.TopicLag": {
+            "type": "object",
+            "properties": {
+                "partitionLags": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/console.PartitionLag"
+                    }
+                },
+                "topic": {
+                    "type": "string"
+                },
+                "totalLag": {
+                    "type": "integer"
+                }
+            }
+        },
+        "console.TopicStats": {
+            "type": "object",
+            "properties": {
+                "fetchRate": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "partitions": {
+                    "type": "integer"
+                },
+                "produceRate": {
+                    "type": "number"
+                },
+                "totalBytes": {
+                    "type": "integer"
+                },
+                "totalMessages": {
+                    "type": "integer"
+                }
+            }
+        },
+        "console.TopicSummary": {
             "type": "object",
             "properties": {
                 "name": {
@@ -720,8 +1623,63 @@ const docTemplate = `{
                 "partitions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/pkg_console.PartitionInfo"
+                        "$ref": "#/definitions/console.PartitionInfo"
                     }
+                }
+            }
+        },
+        "console.UpdateClusterConfigRequest": {
+            "type": "object",
+            "properties": {
+                "connectionTimeoutMs": {
+                    "type": "integer"
+                },
+                "logRetentionHours": {
+                    "type": "integer"
+                },
+                "maxConnections": {
+                    "type": "integer"
+                },
+                "maxMessageBytes": {
+                    "type": "integer"
+                },
+                "requestTimeoutMs": {
+                    "type": "integer"
+                }
+            }
+        },
+        "console.UpdateTopicConfigRequest": {
+            "type": "object",
+            "properties": {
+                "cleanupPolicy": {
+                    "type": "string"
+                },
+                "compressionType": {
+                    "type": "string"
+                },
+                "maxMessageBytes": {
+                    "type": "integer"
+                },
+                "minInSyncReplicas": {
+                    "type": "integer"
+                },
+                "retentionMs": {
+                    "type": "integer"
+                },
+                "segmentMs": {
+                    "type": "integer"
+                }
+            }
+        },
+        "console.WebSocketMessage": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "timestamp": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         }

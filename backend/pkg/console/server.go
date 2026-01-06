@@ -93,8 +93,10 @@ func (s *Server) setupRoutes() {
 	// Topic routes
 	s.router.Route("/api/topics", func(r chi.Router) {
 		r.Get("/", s.handleListTopics)
-		r.Get("/{topic}", s.handleGetTopic)
 		r.Post("/", s.handleCreateTopic)
+		r.Post("/batch", s.handleBatchCreateTopics)
+		r.Delete("/batch", s.handleBatchDeleteTopics)
+		r.Get("/{topic}", s.handleGetTopic)
 		r.Delete("/{topic}", s.handleDeleteTopic)
 	})
 
