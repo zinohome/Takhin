@@ -117,6 +117,16 @@ func (s *Server) setupRoutes() {
 		r.Post("/", s.handleProduceMessage)
 	})
 
+	// Producer routes (REST API)
+	s.router.Route("/api/topics/{topic}/produce", func(r chi.Router) {
+		r.Post("/", s.handleProduceBatch)
+	})
+
+	// Producer status routes
+	s.router.Route("/api/produce", func(r chi.Router) {
+		r.Get("/status/{requestId}", s.handleProduceStatus)
+	})
+
 	// Consumer Group routes
 	s.router.Route("/api/consumer-groups", func(r chi.Router) {
 		r.Get("/", s.handleListConsumerGroups)
