@@ -1,0 +1,295 @@
+name: Performance Regression Tests
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/pkg/storage/**'
+      - 'backend/pkg/kafka/handler/**'
+      - 'backend/pkg/grpcapi/**'
+      - 'backend/pkg/throttle/**'
+      - 'backend/pkg/mempool/**'
+      - '.github/workflows/performance-regression.yml'
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly on Sunday at 2 AM UTC
+  workflow_dispatch:
+    inputs:
+      baseline_ref:
+        description: 'Baseline ref (commit/branch/tag) to compare against'
+        required: false
+        default: 'main'
+      benchmark_time:
+        description: 'Benchmark time per test (e.g., 5s, 10s)'
+        required: false
+        default: '5s'
+
+env:
+  GO_VERSION: '1.23'
+  BENCHMARK_TIME: ${{ github.event.inputs.benchmark_time || '5s' }}
+  BASELINE_REF: ${{ github.event.inputs.baseline_ref || 'main' }}
+  # Performance regression thresholds
+  THROUGHPUT_THRESHOLD: '10'  # % decrease allowed
+  LATENCY_THRESHOLD: '20'     # % increase allowed
+  MEMORY_THRESHOLD: '15'      # % increase in allocs/op allowed
+
+jobs:
+  benchmark-current:
+    name: Run Benchmarks (Current)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/go.sum
+
+      - name: Run benchmarks
+        working-directory: backend
+        run: |
+          mkdir -p ../benchmark_results
+          go test -bench=. -benchmem -benchtime=${{ env.BENCHMARK_TIME }} \
+            ./pkg/storage/log ./pkg/storage/topic \
+            ./pkg/kafka/handler ./pkg/grpcapi \
+            ./pkg/throttle ./pkg/mempool \
+            -run=^$ > ../benchmark_results/current.txt 2>&1 || true
+          
+          # Also run with JSON output for easier parsing
+          go test -bench=. -benchmem -benchtime=${{ env.BENCHMARK_TIME }} \
+            ./pkg/storage/log ./pkg/storage/topic \
+            ./pkg/kafka/handler ./pkg/grpcapi \
+            ./pkg/throttle ./pkg/mempool \
+            -run=^$ -json > ../benchmark_results/current.json 2>&1 || true
+
+      - name: Upload current benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-current
+          path: benchmark_results/current.*
+          retention-days: 30
+
+  benchmark-baseline:
+    name: Run Benchmarks (Baseline)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASELINE_REF }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/go.sum
+
+      - name: Run baseline benchmarks
+        working-directory: backend
+        run: |
+          mkdir -p ../benchmark_results
+          go test -bench=. -benchmem -benchtime=${{ env.BENCHMARK_TIME }} \
+            ./pkg/storage/log ./pkg/storage/topic \
+            ./pkg/kafka/handler ./pkg/grpcapi \
+            ./pkg/throttle ./pkg/mempool \
+            -run=^$ > ../benchmark_results/baseline.txt 2>&1 || true
+          
+          go test -bench=. -benchmem -benchtime=${{ env.BENCHMARK_TIME }} \
+            ./pkg/storage/log ./pkg/storage/topic \
+            ./pkg/kafka/handler ./pkg/grpcapi \
+            ./pkg/throttle ./pkg/mempool \
+            -run=^$ -json > ../benchmark_results/baseline.json 2>&1 || true
+
+      - name: Upload baseline benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-baseline
+          path: benchmark_results/baseline.*
+          retention-days: 30
+
+  compare-and-report:
+    name: Compare & Report
+    runs-on: ubuntu-latest
+    needs: [benchmark-current, benchmark-baseline]
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install benchstat
+        run: go install golang.org/x/perf/cmd/benchstat@latest
+
+      - name: Download current results
+        uses: actions/download-artifact@v4
+        with:
+          name: benchmark-current
+          path: benchmark_results/current
+
+      - name: Download baseline results
+        uses: actions/download-artifact@v4
+        with:
+          name: benchmark-baseline
+          path: benchmark_results/baseline
+
+      - name: Compare benchmarks with benchstat
+        id: benchstat
+        run: |
+          mkdir -p benchmark_results/reports
+          
+          # Run benchstat comparison
+          benchstat \
+            benchmark_results/baseline/baseline.txt \
+            benchmark_results/current/current.txt \
+            > benchmark_results/reports/comparison.txt || true
+          
+          cat benchmark_results/reports/comparison.txt
+
+      - name: Analyze performance regression
+        id: analyze
+        run: |
+          chmod +x scripts/analyze_benchmark_regression.sh
+          ./scripts/analyze_benchmark_regression.sh \
+            benchmark_results/baseline/baseline.txt \
+            benchmark_results/current/current.txt \
+            benchmark_results/reports/regression_report.md \
+            ${{ env.THROUGHPUT_THRESHOLD }} \
+            ${{ env.LATENCY_THRESHOLD }} \
+            ${{ env.MEMORY_THRESHOLD }}
+          
+          # Check if regressions were found
+          if [ -f benchmark_results/reports/regression_detected ]; then
+            echo "regression_found=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Performance regressions detected!"
+          else
+            echo "regression_found=false" >> $GITHUB_OUTPUT
+            echo "✅ No significant performance regressions"
+          fi
+
+      - name: Generate performance report
+        run: |
+          chmod +x scripts/generate_performance_report.sh
+          ./scripts/generate_performance_report.sh \
+            benchmark_results/current/current.txt \
+            benchmark_results/reports/performance_report.html
+
+      - name: Upload comparison reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-reports
+          path: benchmark_results/reports/
+          retention-days: 90
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('benchmark_results/reports/regression_report.md', 'utf8');
+            
+            const comment = `## 📊 Performance Regression Test Results
+            
+            ${report}
+            
+            <details>
+            <summary>📈 View full benchstat comparison</summary>
+            
+            \`\`\`
+            ${fs.readFileSync('benchmark_results/reports/comparison.txt', 'utf8')}
+            \`\`\`
+            
+            </details>
+            
+            ---
+            *Automated performance regression testing - [View detailed report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})*
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Fail if significant regression detected
+        if: steps.analyze.outputs.regression_found == 'true'
+        run: |
+          echo "❌ Significant performance regression detected!"
+          echo "Review the benchmark reports and consider optimizing before merging."
+          exit 1
+
+  store-baseline:
+    name: Store Baseline Results
+    runs-on: ubuntu-latest
+    needs: [benchmark-current]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download current results
+        uses: actions/download-artifact@v4
+        with:
+          name: benchmark-current
+          path: benchmark_results/current
+
+      - name: Store as new baseline
+        run: |
+          mkdir -p benchmark_results/baseline
+          cp benchmark_results/current/current.txt benchmark_results/baseline/baseline_$(date +%Y%m%d).txt
+          cp benchmark_results/current/current.json benchmark_results/baseline/baseline_$(date +%Y%m%d).json
+
+      - name: Upload to benchmark history
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-baseline-${{ github.sha }}
+          path: benchmark_results/baseline/
+          retention-days: 365
+
+      - name: Update benchmark trends (optional - requires external storage)
+        run: |
+          # This could push results to a database, S3, or GitHub Pages
+          # for historical trend tracking
+          echo "Baseline stored for commit ${{ github.sha }}"
+          echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  alert-on-regression:
+    name: Alert on Regression
+    runs-on: ubuntu-latest
+    needs: [compare-and-report]
+    if: failure() && (github.event_name == 'schedule' || github.ref == 'refs/heads/main')
+    steps:
+      - name: Send Slack notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST $SLACK_WEBHOOK_URL -H 'Content-Type: application/json' \
+            -d '{
+              "text": "⚠️ Performance Regression Detected in Takhin",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Performance Regression Alert*\n\nRegressions detected in `${{ github.ref_name }}` branch.\n\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                }
+              ]
+            }'
+
+      - name: Create GitHub issue
+        if: github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `⚠️ Performance Regression Detected - ${new Date().toISOString().split('T')[0]}`,
+              body: `A scheduled performance regression test has detected significant regressions.\n\n**Run Details:** https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\n**Action Required:**\n1. Review the benchmark reports\n2. Identify the commit(s) that introduced the regression\n3. Create a fix or revert the problematic changes\n\ncc @performance-team`,
+              labels: ['performance', 'regression', 'P1']
+            });

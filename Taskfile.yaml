@@ -28,6 +28,7 @@ tasks:
       - go build -o ../{{.BUILD_DIR}}/takhin-cli ./cmd/takhin-cli
       - go build -o ../{{.BUILD_DIR}}/takhin-schema-registry ./cmd/schema-registry
       - go build -o ../{{.BUILD_DIR}}/takhin-profiler ./cmd/takhin-profiler
+      - go build -o ../{{.BUILD_DIR}}/benchcmp ./cmd/benchcmp
     sources:
       - '**/*.go'
       - go.mod
@@ -38,6 +39,7 @@ tasks:
       - ../{{.BUILD_DIR}}/takhin-debug
       - ../{{.BUILD_DIR}}/takhin-cli
       - ../{{.BUILD_DIR}}/takhin-schema-registry
+      - ../{{.BUILD_DIR}}/benchcmp
 
   backend:run:
     desc: Run backend server
@@ -80,6 +82,47 @@ tasks:
     dir: '{{.BACKEND_DIR}}'
     cmds:
       - go test -bench=. -benchtime=1s -benchmem ./pkg/storage/log ./pkg/storage/topic
+
+  backend:bench:regression:
+    desc: Run performance regression tests (compare with baseline)
+    cmds:
+      - mkdir -p benchmark_results
+      - |
+        cd backend
+        echo "Running current benchmarks..."
+        go test -bench=. -benchtime=5s -benchmem ./pkg/storage/... ./pkg/kafka/handler ./pkg/grpcapi -run=^$ > ../benchmark_results/current.txt 2>&1 || true
+      - |
+        if [ -f benchmark_results/baseline.txt ]; then
+          echo "Comparing with baseline..."
+          ./scripts/analyze_benchmark_regression.sh \
+            benchmark_results/baseline.txt \
+            benchmark_results/current.txt \
+            benchmark_results/regression_report.md \
+            10 20 15
+          cat benchmark_results/regression_report.md
+        else
+          echo "No baseline found. Saving current results as baseline..."
+          cp benchmark_results/current.txt benchmark_results/baseline.txt
+        fi
+
+  backend:bench:save-baseline:
+    desc: Save current benchmark results as baseline
+    cmds:
+      - mkdir -p benchmark_results
+      - cd backend && go test -bench=. -benchtime=5s -benchmem ./pkg/storage/... ./pkg/kafka/handler ./pkg/grpcapi -run=^$ > ../benchmark_results/baseline.txt 2>&1
+      - echo "Baseline saved to benchmark_results/baseline.txt"
+
+  backend:bench:report:
+    desc: Generate HTML performance report
+    cmds:
+      - mkdir -p benchmark_results
+      - |
+        if [ ! -f benchmark_results/current.txt ]; then
+          cd backend
+          go test -bench=. -benchtime=5s -benchmem ./pkg/storage/... -run=^$ > ../benchmark_results/current.txt 2>&1 || true
+        fi
+      - ./scripts/generate_performance_report.sh benchmark_results/current.txt benchmark_results/report.html
+      - echo "Report generated at benchmark_results/report.html"
 
   backend:coverage:
     desc: Show backend test coverage
