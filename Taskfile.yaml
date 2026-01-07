@@ -27,6 +27,7 @@ tasks:
       - go build -o ../{{.BUILD_DIR}}/takhin-debug ./cmd/takhin-debug
       - go build -o ../{{.BUILD_DIR}}/takhin-cli ./cmd/takhin-cli
       - go build -o ../{{.BUILD_DIR}}/takhin-schema-registry ./cmd/schema-registry
+      - go build -o ../{{.BUILD_DIR}}/takhin-profiler ./cmd/takhin-profiler
     sources:
       - '**/*.go'
       - go.mod

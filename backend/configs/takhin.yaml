@@ -200,6 +200,12 @@ health:
   host: "0.0.0.0"     # Health check server host
   port: 9091          # Health check server port (separate from Kafka)
 
+# Profiler Configuration (pprof endpoints)
+profiler:
+  enabled: false      # Enable profiler HTTP server (disabled by default for production)
+  host: "0.0.0.0"     # Profiler server host
+  port: 6060          # Profiler server port (standard pprof port)
+
 # ACL Configuration
 acl:
   enabled: false      # Enable ACL authorization (disabled by default)

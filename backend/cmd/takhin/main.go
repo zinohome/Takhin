@@ -14,6 +14,7 @@ import (
 	"github.com/takhin-data/takhin/pkg/kafka/server"
 	"github.com/takhin-data/takhin/pkg/logger"
 	"github.com/takhin-data/takhin/pkg/metrics"
+	"github.com/takhin-data/takhin/pkg/profiler"
 	storagelog "github.com/takhin-data/takhin/pkg/storage/log"
 	"github.com/takhin-data/takhin/pkg/storage/topic"
 )
@@ -98,6 +99,12 @@ func main() {
 		log.Fatal("failed to start metrics server", "error", err)
 	}
 
+	// Start profiler server
+	profilerServer := profiler.NewServer(cfg)
+	if err := profilerServer.Start(); err != nil {
+		log.Fatal("failed to start profiler server", "error", err)
+	}
+
 	// Start health check server
 	var healthServer *health.Server
 	if cfg.Health.Enabled {
@@ -151,6 +158,10 @@ func main() {
 
 	if err := metricsServer.Stop(); err != nil {
 		log.Error("failed to stop metrics server", "error", err)
+	}
+
+	if err := profilerServer.Stop(); err != nil {
+		log.Error("failed to stop profiler server", "error", err)
 	}
 
 	log.Info("Takhin stopped")

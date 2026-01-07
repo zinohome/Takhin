@@ -28,6 +28,7 @@ type Config struct {
 	Sasl        SaslConfig        `koanf:"sasl"`
 	Throttle    ThrottleConfig    `koanf:"throttle"`
 	Audit       AuditConfig       `koanf:"audit"`
+	Profiler    ProfilerConfig    `koanf:"profiler"`
 }
 
 // ServerConfig holds server configuration
@@ -153,6 +154,13 @@ type MetricsConfig struct {
 
 // HealthConfig holds health check configuration
 type HealthConfig struct {
+	Enabled bool   `koanf:"enabled"`
+	Host    string `koanf:"host"`
+	Port    int    `koanf:"port"`
+}
+
+// ProfilerConfig holds profiler configuration
+type ProfilerConfig struct {
 	Enabled bool   `koanf:"enabled"`
 	Host    string `koanf:"host"`
 	Port    int    `koanf:"port"`
@@ -394,6 +402,14 @@ func setDefaults(cfg *Config) {
 	}
 	if cfg.Health.Port == 0 {
 		cfg.Health.Port = 9091
+	}
+
+	// Profiler defaults
+	if cfg.Profiler.Host == "" {
+		cfg.Profiler.Host = "0.0.0.0"
+	}
+	if cfg.Profiler.Port == 0 {
+		cfg.Profiler.Port = 6060
 	}
 
 	// TLS defaults
