@@ -133,6 +133,17 @@ func (s *Server) setupRoutes() {
 		r.Get("/{group}", s.handleGetConsumerGroup)
 	})
 
+	// Broker routes
+	s.router.Route("/api/brokers", func(r chi.Router) {
+		r.Get("/", s.handleListBrokers)
+		r.Get("/{id}", s.handleGetBroker)
+	})
+
+	// Cluster routes
+	s.router.Route("/api/cluster", func(r chi.Router) {
+		r.Get("/stats", s.handleGetClusterStats)
+	})
+
 	// Monitoring routes
 	s.router.Route("/api/monitoring", func(r chi.Router) {
 		r.Get("/metrics", s.handleMonitoringMetrics)

@@ -238,3 +238,24 @@ export interface ConfigHistory {
   resourceName: string
   changes: ConfigChange[]
 }
+
+// Broker Types
+export interface BrokerInfo {
+  id: number
+  host: string
+  port: number
+  isController: boolean
+  topicCount: number
+  partitionCount: number
+  status: string
+}
+
+// Cluster Stats Types
+export interface ClusterStats {
+  brokerCount: number
+  topicCount: number
+  partitionCount: number
+  totalMessages: number
+  totalSizeBytes: number
+  replicationFactor: number
+}
