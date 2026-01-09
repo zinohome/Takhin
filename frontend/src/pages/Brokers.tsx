@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Typography, Card, Row, Col, Badge, Descriptions, Button, Space, Statistic, message } from 'antd'
-import { ReloadOutlined, ApiOutlined, ClusterOutlined, DatabaseOutlined } from '@ant-design/icons'
+import { ReloadOutlined, ClusterOutlined, DatabaseOutlined } from '@ant-design/icons'
 import { takhinApi } from '../api'
 import type { BrokerInfo, ClusterStats } from '../api/types'
 
