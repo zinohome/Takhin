@@ -20,6 +20,8 @@ import type {
   UpdateClusterConfigRequest,
   UpdateTopicConfigRequest,
   BatchUpdateTopicConfigsRequest,
+  BrokerInfo,
+  ClusterStats,
 } from './types'
 
 export class TakhinApiClient {
@@ -240,6 +242,35 @@ export class TakhinApiClient {
     }
 
     return ws
+  }
+
+  // Broker Endpoints
+
+  async listBrokers(): Promise<BrokerInfo[]> {
+    try {
+      const response = await this.client.get<BrokerInfo[]>('/brokers')
+      return response.data
+    } catch (error) {
+      throw handleApiError(error)
+    }
+  }
+
+  async getBroker(brokerId: number): Promise<BrokerInfo> {
+    try {
+      const response = await this.client.get<BrokerInfo>(`/brokers/${brokerId}`)
+      return response.data
+    } catch (error) {
+      throw handleApiError(error)
+    }
+  }
+
+  async getClusterStats(): Promise<ClusterStats> {
+    try {
+      const response = await this.client.get<ClusterStats>('/cluster/stats')
+      return response.data
+    } catch (error) {
+      throw handleApiError(error)
+    }
   }
 
   // Configuration Endpoints

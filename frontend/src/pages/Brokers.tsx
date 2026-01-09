@@ -1,97 +1,47 @@
-import { useState } from 'react'
-import { Typography, Card, Table, Button, Space, Tag, Badge } from 'antd'
-import { ReloadOutlined, ApiOutlined } from '@ant-design/icons'
-import type { TableColumnsType } from 'antd'
+import { useState, useEffect } from 'react'
+import { Typography, Card, Row, Col, Badge, Descriptions, Button, Space, Statistic, message } from 'antd'
+import { ReloadOutlined, ApiOutlined, ClusterOutlined, DatabaseOutlined } from '@ant-design/icons'
+import { takhinApi } from '../api'
+import type { BrokerInfo, ClusterStats } from '../api/types'
 
 const { Title } = Typography
 
-interface BrokerData {
-  key: string
-  id: number
-  host: string
-  port: number
-  rack?: string
-  status: 'online' | 'offline'
-  version: string
-  uptime: string
-}
-
-const mockData: BrokerData[] = []
-
-const columns: TableColumnsType<BrokerData> = [
-  {
-    title: 'Broker ID',
-    dataIndex: 'id',
-    key: 'id',
-    width: 100,
-    sorter: (a, b) => a.id - b.id,
-  },
-  {
-    title: 'Status',
-    dataIndex: 'status',
-    key: 'status',
-    width: 100,
-    render: (status: string) => (
-      <Badge
-        status={status === 'online' ? 'success' : 'error'}
-        text={status === 'online' ? 'Online' : 'Offline'}
-      />
-    ),
-  },
-  {
-    title: 'Host',
-    dataIndex: 'host',
-    key: 'host',
-  },
-  {
-    title: 'Port',
-    dataIndex: 'port',
-    key: 'port',
-    width: 100,
-  },
-  {
-    title: 'Rack',
-    dataIndex: 'rack',
-    key: 'rack',
-    width: 120,
-    render: (rack?: string) => rack || '-',
-  },
-  {
-    title: 'Version',
-    dataIndex: 'version',
-    key: 'version',
-    width: 120,
-    render: (version: string) => <Tag color="blue">{version}</Tag>,
-  },
-  {
-    title: 'Uptime',
-    dataIndex: 'uptime',
-    key: 'uptime',
-    width: 150,
-  },
-  {
-    title: 'Actions',
-    key: 'actions',
-    width: 120,
-    render: () => (
-      <Space size="small">
-        <Button type="link" size="small">
-          Details
-        </Button>
-        <Button type="link" size="small">
-          Metrics
-        </Button>
-      </Space>
-    ),
-  },
-]
-
 export default function Brokers() {
   const [loading, setLoading] = useState(false)
+  const [brokers, setBrokers] = useState<BrokerInfo[]>([])
+  const [clusterStats, setClusterStats] = useState<ClusterStats | null>(null)
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      const [brokersData, statsData] = await Promise.all([
+        takhinApi.listBrokers(),
+        takhinApi.getClusterStats(),
+      ])
+      setBrokers(brokersData)
+      setClusterStats(statsData)
+    } catch (error) {
+      message.error('Failed to load broker information')
+      console.error(error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleRefresh = () => {
-    setLoading(true)
-    setTimeout(() => setLoading(false), 1000)
+    loadData()
+  }
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`
   }
 
   return (
@@ -104,24 +54,104 @@ export default function Brokers() {
           <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={loading}>
             Refresh
           </Button>
-          <Button icon={<ApiOutlined />}>Cluster Config</Button>
         </Space>
       </div>
 
-      <Card>
-        <Table
-          columns={columns}
-          dataSource={mockData}
-          loading={loading}
-          pagination={{
-            pageSize: 10,
-            showTotal: total => `Total ${total} brokers`,
-          }}
-          locale={{
-            emptyText: 'No brokers found in the cluster.',
-          }}
-        />
-      </Card>
+      {/* Cluster Statistics */}
+      {clusterStats && (
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+          <Col xs={24} sm={12} lg={6}>
+            <Card>
+              <Statistic
+                title="Brokers"
+                value={clusterStats.brokerCount}
+                prefix={<ClusterOutlined />}
+                valueStyle={{ color: '#3f8600' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card>
+              <Statistic
+                title="Topics"
+                value={clusterStats.topicCount}
+                prefix={<DatabaseOutlined />}
+                valueStyle={{ color: '#1890ff' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card>
+              <Statistic
+                title="Total Messages"
+                value={clusterStats.totalMessages}
+                valueStyle={{ color: '#722ed1' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card>
+              <Statistic
+                title="Total Size"
+                value={formatBytes(clusterStats.totalSizeBytes)}
+                valueStyle={{ color: '#fa8c16' }}
+              />
+            </Card>
+          </Col>
+        </Row>
+      )}
+
+      {/* Broker Cards */}
+      <Row gutter={[16, 16]}>
+        {brokers.map((broker) => (
+          <Col xs={24} lg={12} key={broker.id}>
+            <Card
+              title={
+                <Space>
+                  <span>Broker {broker.id}</span>
+                  {broker.isController && (
+                    <Badge status="processing" text="Controller" />
+                  )}
+                </Space>
+              }
+              extra={
+                <Badge
+                  status={broker.status === 'online' ? 'success' : 'error'}
+                  text={broker.status === 'online' ? 'Online' : 'Offline'}
+                />
+              }
+              loading={loading}
+            >
+              <Descriptions column={1} size="small">
+                <Descriptions.Item label="Address">
+                  {broker.host}:{broker.port}
+                </Descriptions.Item>
+                <Descriptions.Item label="Topics">
+                  {broker.topicCount}
+                </Descriptions.Item>
+                <Descriptions.Item label="Partitions">
+                  {broker.partitionCount}
+                </Descriptions.Item>
+                <Descriptions.Item label="Status">
+                  <Badge
+                    status={broker.status === 'online' ? 'success' : 'error'}
+                    text={broker.status === 'online' ? 'Running' : 'Down'}
+                  />
+                </Descriptions.Item>
+              </Descriptions>
+            </Card>
+          </Col>
+        ))}
+      </Row>
+
+      {brokers.length === 0 && !loading && (
+        <Card>
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <ClusterOutlined style={{ fontSize: 48, color: '#d9d9d9', marginBottom: 16 }} />
+            <p style={{ color: '#999' }}>No brokers found in the cluster.</p>
+          </div>
+        </Card>
+      )}
     </div>
   )
 }

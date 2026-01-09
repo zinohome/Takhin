@@ -12,6 +12,7 @@ import {
   LogoutOutlined,
   ApiOutlined,
   TeamOutlined,
+  SearchOutlined,
 } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 
