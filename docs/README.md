@@ -1,220 +1,90 @@
-# Takhin 项目文档
+# Takhin 文档中心
 
-欢迎来到 Takhin 项目文档！本文档包含了项目的架构设计、实施方案、测试策略和质量管控等所有重要信息。
+欢迎来到 Takhin 项目文档中心！这里是所有项目文档的入口。
 
-## 📚 文档目录
+## 📚 快速导航
 
-### 架构设计
-全面的系统架构设计文档，涵盖项目整体架构、前后端架构等方面。
+### 项目概览
+- [项目状态报告](PROJECT_STATUS_REPORT.md) - 最新的项目状态和分析
+- [项目架构](architecture/) - 系统架构文档
+- [贡献指南](../CONTRIBUTING.md) - 如何参与项目
 
-- [01-项目整体架构](architecture/01-project-overview.md)
-  - 项目概述和技术栈选型
-  - 系统架构分层
-  - 部署架构
-  - 数据流架构
-  - 技术决策
-  - 项目组织结构
-  - 里程碑规划
+### 开发指南
+- [开发环境搭建](guides/development/setup.md)
+- [测试指南](guides/development/testing.md)
+- [调试技巧](guides/development/debugging.md)
 
-- [02-后端架构设计](architecture/02-backend-architecture.md)
-  - Takhin Core 引擎架构
-  - Takhin Console 后端架构
-  - 核心模块设计 (Kafka Handler, Storage Engine, Raft Consensus)
-  - API 设计原则
-  - 性能优化策略
+### 部署指南
+- [Docker 部署](guides/deployment/docker.md)
+- [Kubernetes 部署](guides/deployment/kubernetes.md)
+- [监控配置](guides/deployment/monitoring.md)
 
-- [03-前端架构设计](architecture/03-frontend-architecture.md)
-  - Console 前端整体架构
-  - 技术栈详细说明
-  - 目录结构
-  - 核心功能设计 (Topic 管理, 消息查看器, Schema Registry)
-  - 性能优化策略
-  - 测试策略
+### 用户手册
+- [快速开始](guides/user/quickstart.md)
+- [Console 使用指南](guides/user/console-guide.md)
+- [CLI 工具参考](guides/user/cli-reference.md)
 
-### 实施方案
-详细的项目实施计划和开发规范。
+### API 文档
+- [Kafka 协议](api/kafka-protocol.md)
+- [REST API](api/rest-api.md)
+- [gRPC API](api/grpc-api.md)
+- [Swagger 文档](swagger/)
 
-- [项目实施计划](implementation/project-plan.md)
-  - 实施总体规划
-  - 分阶段实施计划 (5 个 Phase)
-  - 开发规范 (Git 工作流、代码审查、测试规范)
-  - 发布流程
-  - 风险管理
+## 🎯 开发阶段文档
 
-### 测试方案
-全面的测试策略和测试方法。
+项目按以下8个阶段完成开发：
 
-- [测试策略](testing/test-strategy.md)
-  - 测试策略和目标
-  - 单元测试 (Go + TypeScript)
-  - 集成测试
-  - E2E 测试
-  - 性能测试
-  - 兼容性测试
-  - 安全测试
-  - 测试自动化
+1. [Phase 1: 稳定性与基础补全](phases/phase-1-stability/) - ✅ 已完成
+2. [Phase 2: Console 前端开发](phases/phase-2-console/) - ✅ 已完成
+3. [Phase 3: 性能优化](phases/phase-3-performance/) - ✅ 已完成
+4. [Phase 4: 安全特性](phases/phase-4-security/) - ✅ 已完成
+5. [Phase 5: 监控运维](phases/phase-5-monitoring/) - ✅ 已完成
+6. [Phase 6: HTTP Proxy](phases/phase-6-http-proxy/) - ✅ 已完成
+7. [Phase 7: 文档与测试](phases/phase-7-documentation/) - ✅ 已完成
+8. [Phase 8: 部署运维](phases/phase-8-deployment/) - ✅ 已完成
 
-### 质量管控
-项目质量保证和持续改进机制。
+每个阶段目录包含该阶段所有任务的详细文档。
 
-- [质量管控计划](quality/quality-control.md)
-  - 质量管理体系
-  - 代码质量管控
-  - 测试质量管控
-  - 性能质量管控
-  - 安全质量管控
-  - 文档质量管控
-  - 持续改进
+## 🔍 搜索文档
 
-### 部署运维
-生产环境部署和运维指南。
+使用以下命令在文档中搜索关键词：
 
-- [部署文档总览](deployment/README.md)
-  - 文档概览和快速导航
-  - 部署决策矩阵
-  - 环境变量参考
-  - 健康检查和监控
+```bash
+# 在所有文档中搜索
+grep -r "关键词" docs/
 
-- [单机部署指南](deployment/01-standalone-deployment.md)
-  - 安装方法（源码构建、预编译二进制）
-  - 配置文件设置
-  - systemd 服务配置
-  - Console 部署
-  - 性能调优和备份恢复
+# 在特定阶段中搜索
+grep -r "关键词" docs/phases/phase-2-console/
+```
 
-- [集群部署指南](deployment/02-cluster-deployment.md)
-  - 多节点集群架构（Raft 共识）
-  - 3+ 节点部署
-  - 负载均衡器配置（HAProxy、nginx）
-  - 集群测试和故障转移
-  - 扩容和灾难恢复
+## 📝 文档贡献
 
-- [Docker/Kubernetes 部署](deployment/03-docker-deployment.md)
-  - Dockerfile 创建和镜像构建
-  - Docker Compose（单机和集群模式）
-  - Kubernetes StatefulSet 部署
-  - Helm Chart 部署
-  - 监控集成和备份
+发现文档问题或想要改进？请参考 [贡献指南](../CONTRIBUTING.md)。
 
-- [配置参考](deployment/04-configuration-reference.md)
-  - 完整配置选项说明
-  - 服务器、Kafka、存储、复制配置
-  - 日志和指标配置
-  - 配置示例（开发、生产、高吞吐）
-  - 性能调优指南
+## 🗂️ 文档结构
 
-- [故障排查指南](deployment/05-troubleshooting.md)
-  - 快速诊断命令
-  - 8 个常见问题及解决方案
-  - 调试工具（pprof、tcpdump、压测）
-  - 日志分析模式
-  - 监控检查清单
-
-## 🚀 快速开始
-
-### 新团队成员入门
-1. 阅读[项目整体架构](architecture/01-project-overview.md)了解项目概况
-2. 根据你的角色阅读对应的架构文档：
-   - 后端开发: [后端架构设计](architecture/02-backend-architecture.md)
-   - 前端开发: [前端架构设计](architecture/03-frontend-architecture.md)
-3. 了解[项目实施计划](implementation/project-plan.md)和开发规范
-4. 查看[测试策略](testing/test-strategy.md)了解测试要求
-5. 遵守[质量管控计划](quality/quality-control.md)中的规范
-
-### 关键概念
-
-#### Takhin Core
-Takhin 的核心流数据引擎，兼容 Apache Kafka® 协议，使用 Go 语言编写。主要特性：
-- Kafka 协议兼容
-- Raft 共识算法
-- 高性能存储引擎
-- 无 ZooKeeper 依赖
-
-#### Takhin Console
-Web 管理界面，用于管理和监控 Takhin Core 集群。包括：
-- React 前端 (TypeScript + Chakra UI)
-- Go 后端 (REST + gRPC API)
-- 消息查看器
-- Schema Registry 管理
-- 集群监控
-
-## 📊 项目里程碑
-
-### Phase 1: 基础设施搭建 (4周)
-- ✅ 开发环境和 CI/CD
-- ✅ 项目脚手架
-- ✅ 基础组件 (日志、配置、监控)
-
-### Phase 2: Core 引擎开发 (16-20周)
-- 🔄 网络层和协议解析
-- 🔄 存储引擎
-- 🔄 Raft 共识
-- 🔄 集群管理
-- 🔄 高级特性
-
-### Phase 3: Console 后端开发 (8-10周)
-- ⏳ API 框架
-- ⏳ 核心功能
-- ⏳ 扩展功能
-
-### Phase 4: Console 前端开发 (10-12周)
-- ⏳ 基础框架
-- ⏳ 核心页面
-- ⏳ Schema & Connect
-
-### Phase 5: 测试和优化 (6-8周)
-- ⏳ 集成测试
-- ⏳ 性能优化
-
-## 📈 质量指标
-
-### 代码质量
-- 测试覆盖率: ≥ 80%
-- 代码复杂度: < 15
-- 重复代码率: ≤ 3%
-
-### 性能指标
-- 吞吐量: >100K msg/s
-- P99 延迟: <10ms
-- 服务可用性: 99.9%
-
-### 安全性
-- 无已知高危漏洞
-- 依赖安全扫描通过
-- 代码安全扫描通过
-
-## 🤝 贡献指南
-
-### 开发流程
-1. Fork 项目
-2. 创建 feature 分支
-3. 完成开发和测试
-4. 提交 Pull Request
-5. 等待代码审查
-6. 合并到主分支
-
-### 代码规范
-- Go: 遵循 [Effective Go](https://go.dev/doc/effective_go)
-- TypeScript: 使用 Biome 格式化
-- 提交信息: 遵循 [Conventional Commits](https://www.conventionalcommits.org/)
-
-### 测试要求
-- 所有新功能必须有单元测试
-- 测试覆盖率不低于 80%
-- 集成测试覆盖关键流程
-
-## 📞 联系方式
-
-- **项目主页**: https://github.com/takhin-data/takhin
-- **问题反馈**: https://github.com/takhin-data/takhin/issues
-- **讨论区**: https://github.com/takhin-data/takhin/discussions
-
-## 📝 许可证
-
-本项目采用 Business Source License (BSL)。详见 [LICENSE](../LICENSE) 文件。
+```
+docs/
+├── README.md                    # 本文件
+├── PROJECT_STATUS_REPORT.md     # 项目状态报告
+├── phases/                      # 开发阶段文档
+│   ├── phase-1-stability/
+│   ├── phase-2-console/
+│   ├── phase-3-performance/
+│   ├── phase-4-security/
+│   ├── phase-5-monitoring/
+│   ├── phase-6-http-proxy/
+│   ├── phase-7-documentation/
+│   └── phase-8-deployment/
+├── api/                         # API 文档
+├── guides/                      # 使用指南
+│   ├── development/            # 开发指南
+│   ├── deployment/             # 部署指南
+│   └── user/                   # 用户手册
+├── architecture/               # 架构文档
+└── archive/                    # 归档文档
+```
 
 ---
 
-**文档维护者**: Takhin Team  
-**最后更新**: 2025-12-14  
-**文档版本**: v1.0
+**最后更新**: 2026年2月9日
