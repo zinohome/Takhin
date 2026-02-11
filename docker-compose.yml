@@ -1,0 +1,27 @@
+services:
+  takhin:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile
+    image: takhin:latest
+    container_name: takhin
+    ports:
+      - "9092:9092"   # Kafka Protocol
+      - "9090:9090"   # Metrics
+      - "9091:9091"   # Health Check
+      - "8080:8080"   # Web UI
+    volumes:
+      - takhin_data:/data
+      - ./backend/configs/takhin-prod.yaml:/app/configs/takhin.yaml:ro
+    environment:
+      - TAKHIN_STORAGE_DATA_DIR=/data/takhin
+      - TAKHIN_KAFKA_ADVERTISED_HOST=localhost
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  takhin_data:

@@ -2,8 +2,8 @@ version: 2
 
 before:
   hooks:
-    - go mod download
-    - go mod tidy
+    - sh -c "cd backend && go mod download"
+    - sh -c "cd backend && go mod tidy"
 
 builds:
   - id: takhin
@@ -104,9 +104,10 @@ builds:
 
 archives:
   - id: default
-    formats:
-      - tar.gz
-      - zip
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
     name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_

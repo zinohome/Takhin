@@ -1,0 +1,75 @@
+# Takhin Production Configuration
+
+# Server Configuration
+server:
+  host: "0.0.0.0"
+  port: 9092
+  
+  # TLS/SSL Configuration (Enabled for production)
+  tls:
+    enabled: false                    # Disabled for initial simplified deployment, ENABLE for real prod
+    # cert:
+    #   file: "/app/certs/server.crt"
+    # key:
+    #   file: "/app/certs/server.key"
+    # client:
+    #   auth: "none"
+
+# Kafka Protocol Configuration
+kafka:
+  broker:
+    id: 1
+  
+  cluster:
+    brokers: [1]
+  
+  listeners:
+    - "tcp://0.0.0.0:9092"
+  advertised:
+    host: "localhost"  # Override with env var TAKHIN_KAFKA_ADVERTISED_HOST
+    port: 9092
+  
+  max:
+    connections: 10000
+    message:
+      bytes: 10485760      # 10MB
+
+# Storage Configuration
+storage:
+  data:
+    dir: "/data/takhin"
+  
+  log:
+    retention:
+      hours: 168          # 7 days
+    segment:
+      size: 1073741824    # 1GB
+
+# Metrics Configuration
+metrics:
+  enabled: true
+  host: "0.0.0.0"
+  port: 9090
+  path: "/metrics"
+
+# Health Check Configuration
+health:
+  enabled: true
+  host: "0.0.0.0"
+  port: 9091
+
+# Logging Configuration
+logging:
+  level: "info"
+  format: "json"
+
+# Throttle Configuration
+throttle:
+  producer:
+    bytes:
+      per:
+        second: 104857600   # 100 MB/s
+  consumer:
+    bytes:
+      per:
+        second: 104857600   # 100 MB/s

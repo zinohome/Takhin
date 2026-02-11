@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { takhinApi } from '../api'
 import type {
   ClusterConfig,
@@ -28,11 +28,7 @@ export default function Configuration() {
   // Topic config form state
   const [topicForm, setTopicForm] = useState<UpdateTopicConfigRequest>({})
 
-  useEffect(() => {
-    loadData()
-  }, [activeTab])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -56,7 +52,11 @@ export default function Configuration() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [activeTab])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const loadTopicConfig = async (topicName: string) => {
     try {

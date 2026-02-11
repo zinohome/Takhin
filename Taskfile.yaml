@@ -28,7 +28,6 @@ tasks:
       - go build -o ../{{.BUILD_DIR}}/takhin-cli ./cmd/takhin-cli
       - go build -o ../{{.BUILD_DIR}}/takhin-schema-registry ./cmd/schema-registry
       - go build -o ../{{.BUILD_DIR}}/takhin-profiler ./cmd/takhin-profiler
-      - go build -o ../{{.BUILD_DIR}}/benchcmp ./cmd/benchcmp
     sources:
       - '**/*.go'
       - go.mod
@@ -39,7 +38,6 @@ tasks:
       - ../{{.BUILD_DIR}}/takhin-debug
       - ../{{.BUILD_DIR}}/takhin-cli
       - ../{{.BUILD_DIR}}/takhin-schema-registry
-      - ../{{.BUILD_DIR}}/benchcmp
 
   backend:run:
     desc: Run backend server
